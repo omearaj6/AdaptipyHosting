@@ -1,11 +1,12 @@
 #[build]
 #builder = "DOCKERFILE"
 
-[deploy]
-startCommand = "gunicorn adaptipy.wsgi:application --bind 0.0.0.0:$PORT"
+#[deploy]
+#startCommand = "gunicorn adaptipy.wsgi:application --bind 0.0.0.0:$PORT"
 
 
 #[environment]
 
 #DEBUG = "False"
+
 
