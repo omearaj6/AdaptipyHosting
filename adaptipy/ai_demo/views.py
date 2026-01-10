@@ -156,6 +156,8 @@ def check_user_code(code, expected_output):
 
 
 def coding_demo(request):
+    from django.db import connection
+    print(connection.vendor)
 
     if request.method == "POST" and "reset_progress" in request.POST:
         request.session.pop("sm2_sr", None)
@@ -314,3 +316,4 @@ def coding_demo(request):
 def recommend_problem(request):
     weak_area = request.GET.get("weakness", "loops")
     return JsonResponse({"recommended_topic": weak_area})
+
