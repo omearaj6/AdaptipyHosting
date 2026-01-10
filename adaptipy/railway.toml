@@ -2,9 +2,10 @@
 #builder = "DOCKERFILE"
 
 [deploy]
-startCommand = "python manage.py migrate --noinput && gunicorn adaptipy.wsgi:application --bind 0.0.0.0:$PORT"
+startCommand = "gunicorn adaptipy.wsgi:application --bind 0.0.0.0:$PORT"
 
 
 #[environment]
 
 #DEBUG = "False"
+
