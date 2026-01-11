@@ -1,6 +1,28 @@
 <!DOCTYPE html>
 <html>
-<head >
+    <div class="header" style="justify-content: space-between;">    
+        <div style="display: flex; align-items: center; gap: 12px;">
+            {% if user.is_authenticated %}
+                <span style="font-size: 14px;">
+                    Logged in as <strong>{{ user.username }}</strong>
+                </span>
+    
+                <form method="POST" action="/accounts/logout/">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="btn"
+                            style="background:#dc3545;">
+                        Log out
+                    </button>
+                </form>
+            {% else %}
+                <a href="/accounts/login/" class="btn run-code-btn">
+                    Log in
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    
     <title>Python Coding Demo</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }

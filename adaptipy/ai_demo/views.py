@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import json
 from django.utils import timezone
 from datetime import timedelta
+from django.contrib.auth.decorators import login_required
 
 load_dotenv()
 
@@ -154,7 +155,7 @@ def check_user_code(code, expected_output):
     except Exception:
         return False, ""
 
-
+@login_required
 def coding_demo(request):
     from django.db import connection
     print(connection.vendor)
@@ -316,4 +317,3 @@ def coding_demo(request):
 def recommend_problem(request):
     weak_area = request.GET.get("weakness", "loops")
     return JsonResponse({"recommended_topic": weak_area})
-
