@@ -8,36 +8,89 @@ import json
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.decorators import login_required
+from ai_demo.models import TopicProgress
 
 load_dotenv()
 
 TOPICS = ["loops", "strings", "arrays", "recursion", "conditionals", "variables"]
 
 
-def _sr_defaults():
+
+
+def _sr_defaults_dt():
     return {
         "ef": 2.5,
         "interval": 0.0,
         "reps": 0,
         "lapses": 0,
-        "due": timezone.now().isoformat()
+        "due": timezone.now(),  
     }
 
+def ensure_user_topic_rows(user):
+    """
+    Ensure the user has one TopicProgress row per topic.
+    Safe to call repeatedly.
+    """
+    now = timezone.now()
+    existing = set(
+        TopicProgress.objects.filter(user=user).values_list("topic", flat=True)
+    )
+    missing = [t for t in TOPICS if t not in existing]
+    if missing:
+        TopicProgress.objects.bulk_create(
+            [TopicProgress(user=user, topic=t, due=now) for t in missing],
+            ignore_conflicts=True,
+        )
 
-def get_sr_map(session, topics):
-    sr = session.get("sm2_sr")
-    if not isinstance(sr, dict):
-        sr = {}
+def get_sr_map_db(user):
+    """
+    Returns sr_map in the SAME SHAPE your template expects:
+    {topic: {"ef":..., "interval":..., "reps":..., "lapses":..., "due": "<iso>" } }
+    """
+    ensure_user_topic_rows(user)
 
-    changed = False
-    for t in topics:
-        if t not in sr:
-            sr[t] = _sr_defaults()
-            changed = True
+    rows = TopicProgress.objects.filter(user=user).only(
+        "topic", "ef", "interval", "reps", "lapses", "due"
+    )
 
-    if changed:
-        session["sm2_sr"] = sr
-    return sr
+    sr_map = {}
+    for r in rows:
+        sr_map[r.topic] = {
+            "ef": float(r.ef),
+            "interval": float(r.interval),
+            "reps": int(r.reps),
+            "lapses": int(r.lapses),
+            "due": r.due.isoformat(),
+        }
+
+    for t in TOPICS:
+        if t not in sr_map:
+            d = _sr_defaults_dt()
+            sr_map[t] = {**d, "due": d["due"].isoformat()}
+
+    return sr_map
+
+def save_topic_state_db(user, topic, state):
+    """
+    Persist ONE topic state dict into DB.
+    """
+    due_dt = parse_due(state.get("due", timezone.now().isoformat()))
+    TopicProgress.objects.update_or_create(
+        user=user,
+        topic=topic,
+        defaults={
+            "ef": float(state.get("ef", 2.5)),
+            "interval": float(state.get("interval", 0.0)),
+            "reps": int(state.get("reps", 0)),
+            "lapses": int(state.get("lapses", 0)),
+            "due": due_dt,
+        },
+    )
+
+
+
+
+
 
 
 def clamp(x, lo, hi):
@@ -113,7 +166,7 @@ def generate_problem_with_solution(concept="loops"):
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You create Python coding problems that use PRINT statements."},
-                {"role": "user", "content": f"""Create a simple Python problem about {concept}.
+                {"role": "user", "content": f"""Create a simple Python problem about {concept}. Make sure that all necessary information to answer the question is included in the question
 
 Return JSON:
 {{"problem": "...", "expected_output": "..."}}"""}
@@ -161,10 +214,13 @@ def coding_demo(request):
     print(connection.vendor)
 
     if request.method == "POST" and "reset_progress" in request.POST:
-        request.session.pop("sm2_sr", None)
+        TopicProgress.objects.filter(user=request.user).delete()
         request.session.pop("due_practice_topic", None)
         request.session.pop("due_practice_problem", None)
         request.session.pop("due_practice_expected", None)
+        request.session.pop("current_problem", None)
+        request.session.pop("current_expected_output", None)
+
         
     result = None
     user_code = ""
@@ -187,7 +243,7 @@ def coding_demo(request):
         request.session["due_practice_open"] = False
 
 
-    sr_map = get_sr_map(request.session, TOPICS)
+    sr_map = get_sr_map_db(request.user)
     recommended_topic = pick_recommended_topic(sr_map)
 
     selected_topic = request.session.get("selected_topic", recommended_topic)
@@ -223,7 +279,7 @@ def coding_demo(request):
             fast_mode = os.getenv("SR_FAST_MODE") == "1"
             grade = 5 if correct else 1
             sr_map[selected_topic] = sm2_update_state(sr_map[selected_topic], grade, fast_mode)
-            request.session["sm2_sr"] = sr_map
+            save_topic_state_db(request.user, selected_topic, sr_map[selected_topic])
             result = "Correct!" if correct else "Incorrect"
             if not correct:
                 evaluation_feedback = evaluate_code_quality(user_code, ai_problem)
@@ -281,7 +337,7 @@ def coding_demo(request):
             elif "due_submit_code" in request.POST:
                 grade = 5 if correct else 1
                 sr_map[due_practice_topic] = sm2_update_state(sr_map[due_practice_topic], grade, fast_mode)
-                request.session["sm2_sr"] = sr_map
+                save_topic_state_db(request.user, due_practice_topic, sr_map[due_practice_topic])
                 due_result = "Correct!" if correct else "Incorrect"
                 if not correct:
                     due_evaluation_feedback = evaluate_code_quality(due_user_code, due_practice_problem)
