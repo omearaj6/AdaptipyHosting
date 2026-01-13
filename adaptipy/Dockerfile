@@ -30,4 +30,4 @@ RUN python manage.py collectstatic --noinput
 EXPOSE 8000
 
 # Run the application
-CMD ["gunicorn", "adaptipy.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["bash", "-lc", "python manage.py migrate --noinput && gunicorn adaptipy.wsgi:application --bind 0.0.0.0:${PORT} --log-file -"]
