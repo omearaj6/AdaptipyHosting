@@ -1,9 +1,7 @@
 from django.db import models
-
-# Create your models here.
 from django.conf import settings
-from django.db import models
 from django.utils import timezone
+
 
 class TopicProgress(models.Model):
     """
@@ -45,3 +43,49 @@ class TopicProgress(models.Model):
 
     def __str__(self):
         return f"{self.user_id}:{self.topic}"
+
+
+
+TOPICS_LEVEL_1 = ["print_basics", "variables", "primitive_data_types", "simple_operators"]
+TOPICS_LEVEL_2 = ["while_loops", "for_loops", "conditionals", "lists", "strings_advanced", "basic_edge_cases"]
+TOPICS_LEVEL_3 = ["dictionaries", "functions", "all_loops_advanced"]
+
+ALL_TOPICS = TOPICS_LEVEL_1 + TOPICS_LEVEL_2 + TOPICS_LEVEL_3
+TOPIC_CHOICES = [(t, t) for t in ALL_TOPICS]
+
+
+class UserLearningProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="learning_profile",
+    )
+    last_decay_applied_at = models.DateTimeField(default=timezone.now)
+    last_topic = models.CharField(max_length=64, blank=True, default="")
+
+    def __str__(self):
+        return f"LearningProfile(user_id={self.user_id})"
+
+
+class TopicProficiency(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="topic_proficiencies",
+    )
+    topic = models.CharField(max_length=64, choices=TOPIC_CHOICES)
+    proficiency = models.FloatField(default=0.0)
+    last_practiced_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "topic"], name="uniq_user_topic_proficiency")
+        ]
+        indexes = [
+            models.Index(fields=["user", "topic"], name="idx_user_topic_prof"),
+            models.Index(fields=["user", "proficiency"], name="idx_user_prof_value"),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id}:{self.topic}={self.proficiency}"

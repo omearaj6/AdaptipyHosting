@@ -1,6 +1,5 @@
 [build]
 builder = "DOCKERFILE"
 
-
 [environment]
 DEBUG = "False"

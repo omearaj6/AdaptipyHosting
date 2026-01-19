@@ -9,11 +9,66 @@ from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.decorators import login_required
 from ai_demo.models import TopicProgress
+from .proficiencies import ensure_proficiency_rows
+from django.db import connection
+
 
 load_dotenv()
 
 TOPICS = ["loops", "strings", "arrays", "recursion", "conditionals", "variables"]
 
+
+
+
+def generate_hint_openai(problem: str, expected_output: str, code: str, stdout: str, stderr: str, correct: bool) -> str:
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        instructions = (
+            "You are a tutor helping a beginner learn Python and analysing and evaluating their Python problems.\n"
+            "Rules:\n"
+            "- Do NOT provide the full solution.\n"
+            "- Do NOT provide a complete corrected code listing.\n"
+            "- Give a targeted hint.\n"
+            "- If correct, give 1–2 improvements (style/readability/edge cases) without rewriting everything.\n"
+            "- Be concise and beginner-friendly.\n"
+        )
+
+        user_msg = f"""
+Problem:
+{problem}
+
+Expected output:
+{expected_output}
+
+Student code:
+{code}
+
+Program stdout:
+{stdout}
+
+Program stderr (if any):
+{stderr}
+
+Was the output correct? {correct}
+"""
+
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_HINT_MODEL", "gpt-3.5-turbo"),
+            messages=[
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": user_msg},
+            ],
+            max_tokens=220,
+            temperature=0.4,
+        )
+
+        text = (response.choices[0].message.content or "").strip()
+        return text or "Try comparing your output to the expected output line by line."
+
+    except Exception as e:
+        return f"OPENAI ERROR: {type(e).__name__}: {e}"
 
 
 
@@ -203,14 +258,19 @@ def check_user_code(code, expected_output):
         result = subprocess.run(['python3', path], capture_output=True, text=True, timeout=5)
         os.unlink(path)
 
-        output = result.stdout.strip()
-        return result.returncode == 0 and output == expected_output.strip(), output
-    except Exception:
-        return False, ""
+        stdout = (result.stdout or "").strip()
+        stderr = (result.stderr or "").strip()
+        correct = (result.returncode == 0) and (stdout == expected_output.strip())
+        return correct, stdout, stderr
+    except subprocess.TimeoutExpired:
+        return False, "", "Time limit exceeded (timeout)."
+    except Exception as e:
+        return False, "", f"Execution error: {e}"
+
 
 @login_required
 def coding_demo(request):
-    from django.db import connection
+    ensure_proficiency_rows(request.user)
     print(connection.vendor)
 
     if request.method == "POST" and "reset_progress" in request.POST:
@@ -270,7 +330,8 @@ def coding_demo(request):
 
     if request.method == "POST" and "code" in request.POST:
         user_code = request.POST.get("code", "")
-        correct, output = check_user_code(user_code, expected_output)
+        correct, output, stderr = check_user_code(user_code, expected_output)
+
 
         if "run_code" in request.POST:
             result = f"Output:\n{output}"
@@ -282,7 +343,14 @@ def coding_demo(request):
             save_topic_state_db(request.user, selected_topic, sr_map[selected_topic])
             result = "Correct!" if correct else "Incorrect"
             if not correct:
-                evaluation_feedback = evaluate_code_quality(user_code, ai_problem)
+                evaluation_feedback = generate_hint_openai(
+                problem=ai_problem,
+                expected_output=expected_output,
+                code=user_code,
+                stdout=output,
+                stderr=stderr,
+                correct=correct,
+                )
 
     now = timezone.now()
     fast_mode = os.getenv("SR_FAST_MODE") == "1"
@@ -329,7 +397,7 @@ def coding_demo(request):
 
         if request.method == "POST" and ("due_run_code" in request.POST or "due_submit_code" in request.POST):
             due_user_code = request.POST.get("due_code", "")
-            correct, output = check_user_code(due_user_code, request.session["due_practice_expected"])
+            correct, output, stderr = check_user_code(due_user_code, request.session["due_practice_expected"])
 
             if "due_run_code" in request.POST:
                 due_result = f"Output:\n{output}"
@@ -340,7 +408,14 @@ def coding_demo(request):
                 save_topic_state_db(request.user, due_practice_topic, sr_map[due_practice_topic])
                 due_result = "Correct!" if correct else "Incorrect"
                 if not correct:
-                    due_evaluation_feedback = evaluate_code_quality(due_user_code, due_practice_problem)
+                    due_evaluation_feedback = generate_hint_openai(
+                        problem=due_practice_problem,
+                        expected_output=request.session["due_practice_expected"],
+                        code=due_user_code,
+                        stdout=output,
+                        stderr=stderr,
+                        correct=correct,
+                        )
                 request.session.pop("due_practice_problem", None)
                 request.session.pop("due_practice_expected", None)
 
