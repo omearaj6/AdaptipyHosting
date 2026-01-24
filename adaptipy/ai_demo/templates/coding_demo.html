@@ -30,25 +30,27 @@
         .btn { color: white; padding: 10px 20px; text-decoration: none; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
         .new-problem-btn { background: #28a745; }
         .run-code-btn { background: #007bff; }
-        .topic-selector { background: #6c757d; }
         textarea { width: 100%; margin: 10px 0; font-family: monospace; }
         .result { margin-top: 20px; padding: 15px; white-space: pre-wrap; border-radius: 5px; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .feedback { background: #e7f3ff; color: #004085; border: 1px solid #b8daff; margin-top: 15px; }
-        .topic-section { margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
         .button-group { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
-        select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
         .hint-icon { font-weight: bold; margin-right: 5px; }
-        #due-editor {
-        height: 300px;
-        border: 1px solid #ccc;
-}
+        #due-editor {height: 300px; border: 1px solid #ccc;}
+        .lesson, .explanation {background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin: 12px 0; max-width: 100%; box-sizing: border-box;}
+        .lesson pre, .explanation pre {margin: 0; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 
 </head>
 <body>
+    {% if days_decayed %}
+        <div style="font-size: 12px; color: #777; margin-bottom: 6px;">
+            Proficiency decay applied: {{ days_decayed }} day{{ days_decayed|pluralize }}
+        </div>
+    {% endif %}
+
     <div class="header">
         <h1>Python Coding Practice</h1>
         <form method="POST" style="display: inline;">
@@ -59,26 +61,24 @@
         </form>
     </div>
     
-    <!-- Topic Selection Section -->
-    <div class="topic-section">
-        <h3>Select Topic to Practice</h3>
-        <form method="POST">
-            {% csrf_token %}
-            <select name="topic">
-                {% for topic in topics %}
-                    <option value="{{ topic }}" {% if topic == selected_topic %}selected{% endif %}>
-                        {{ topic|title }}
-                    </option>
-                {% endfor %}
-            </select>
-            <button type="submit" name="select_topic" class="btn topic-selector">
-                Select Topic
-            </button>
-        </form>
-        <p><small>Current topic: <strong>{{ selected_topic|title }}</strong></small></p>
-        <p><small>Recommended topic: <strong>{{ recommended_topic|title }}</strong></small></p>
+    <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
+        <strong>Topic:</strong> {{ selected_topic|title }}
+      </div>
+
+      <!-- Expected Output Section -->
+    <div class="expected-output-section">
+        <p><strong>Expected Output:</strong></p>
+        <pre style="
+            background: #666;
+            color: #d4edda;
+            padding: 12px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        ">{{ expected_output }}</pre>
     </div>
-    
+
+
     <!-- Problem Section -->
     <div class="problem-section">
         <p><strong>AI-Generated Problem:</strong></p>
@@ -86,7 +86,28 @@
             {{ ai_problem }}
         </div>
     </div>
+
+    <form method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" name="i_dont_understand" value="1">
+          I don’t understand
+        </button>
+      </form>
     
+    {% if lesson %}
+    <div class="lesson">
+      <strong>Intro lesson:</strong>
+      <pre>{{ lesson }}</pre>
+    </div>
+  {% endif %}
+  
+  {% if show_explanation and explanation %}
+    <div class="explanation">
+      <strong>Explanation:</strong>
+      <pre>{{ explanation }}</pre>
+    </div>
+  {% endif %}
+
     <!-- Code Input Section -->
     <form method="POST" onsubmit="syncEditor()">
         {% csrf_token %}
@@ -99,6 +120,8 @@
             <button type="submit" name="submit_code" class="btn new-problem-btn">Submit</button>
         </div>
     </form>
+
+    
     
     <!-- Results Section -->
     {% if result %}
@@ -334,7 +357,14 @@
     });
     </script>
     
-    
+    {% if proficiency_debug %}
+      <div style="font-size: 12px; color: #777; margin-top: 6px;">
+        <strong>Proficiency (debug):</strong><br>
+        {% for p in proficiency_debug %}
+            {{ p.topic }} → {{ p.proficiency }}<br>
+        {% endfor %}
+    </div>
+    {% endif %}
 
 </body>
 </html>

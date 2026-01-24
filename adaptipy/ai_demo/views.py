@@ -2,20 +2,23 @@ from django.http import JsonResponse
 from django.shortcuts import render
 import subprocess
 import tempfile
-import os
+import os, json, re
 from dotenv import load_dotenv
-import json
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.decorators import login_required
-from ai_demo.models import TopicProgress
-from .proficiencies import ensure_proficiency_rows
+from ai_demo.models import TopicProgress, TopicProficiency, UserLearningProfile
+from .proficiencies import ensure_proficiency_rows, apply_decay_if_needed, update_proficiency, choose_next_topic, get_proficiencies
 from django.db import connection
-
+from ai_demo.models import ALL_TOPICS
 
 load_dotenv()
 
-TOPICS = ["loops", "strings", "arrays", "recursion", "conditionals", "variables"]
+TOPICS = ALL_TOPICS
+SM2_TOPICS = ["loops", "strings", "arrays", "recursion", "conditionals", "variables"]
+USE_SM2 = False
+
+
 
 
 
@@ -82,15 +85,12 @@ def _sr_defaults_dt():
     }
 
 def ensure_user_topic_rows(user):
-    """
-    Ensure the user has one TopicProgress row per topic.
-    Safe to call repeatedly.
-    """
+
     now = timezone.now()
     existing = set(
         TopicProgress.objects.filter(user=user).values_list("topic", flat=True)
     )
-    missing = [t for t in TOPICS if t not in existing]
+    missing = [t for t in SM2_TOPICS if t not in existing]
     if missing:
         TopicProgress.objects.bulk_create(
             [TopicProgress(user=user, topic=t, due=now) for t in missing],
@@ -98,10 +98,7 @@ def ensure_user_topic_rows(user):
         )
 
 def get_sr_map_db(user):
-    """
-    Returns sr_map in the SAME SHAPE your template expects:
-    {topic: {"ef":..., "interval":..., "reps":..., "lapses":..., "due": "<iso>" } }
-    """
+
     ensure_user_topic_rows(user)
 
     rows = TopicProgress.objects.filter(user=user).only(
@@ -118,7 +115,7 @@ def get_sr_map_db(user):
             "due": r.due.isoformat(),
         }
 
-    for t in TOPICS:
+    for t in SM2_TOPICS:
         if t not in sr_map:
             d = _sr_defaults_dt()
             sr_map[t] = {**d, "due": d["due"].isoformat()}
@@ -210,39 +207,138 @@ def pick_recommended_topic(sr_map):
 
     soonest = sorted(items, key=lambda x: x[1])
     return soonest[0][0] if soonest else "loops"
+        
 
-
-def generate_problem_with_solution(concept="loops"):
+def generate_problem_with_solution(topic: str, profs: dict) -> dict:
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        topic_prof = float(profs.get(topic, 0.0))
+
+        prompt = f"""
+Create a Python coding problem.
+
+Main topic: {topic}
+Main topic proficiency: {topic_prof}/5
+
+CRITICAL REQUIREMENTS:
+1. The problem MUST specify ALL concrete values needed to solve it.
+2. For calculations, explicitly state the numbers to use (e.g., "with length 6 and width 4")
+3. For data structures, EITHER:
+   a) Tell the user to create the data structure with specific values, OR
+   b) Provide a variable name and its contents
+4. For conditionals, state the exact conditions and values
+5. The problem should be solvable with ONLY the information provided
+
+Rules:
+- Must use print() for output only.
+- Do NOT use input(), file I/O, imports, or external libraries.
+- The program must be fully self-contained and executable.
+- All values must be hard-coded as variables or literals in the code.
+- Keep intended solution under 15 lines.
+- Output should be simple values, NOT formatted strings unless explicitly requested.
+- If main topic proficiency is 0, include a brief introductory lesson with a small example.
+
+FORMATTING GUIDELINES:
+1. For list problems: "Create a list called 'numbers' containing [4, 2, 9, 7, 5, 1] and print the sum of squares."
+2. For variable problems: "Assign 10 to variable x and 20 to variable y, then print their sum."
+3. For calculation problems: "Calculate 6 * 4 and print the result."
+4. DO NOT expect formatted output like "The sum is: 24" unless explicitly part of the problem.
+5. When showing expected output, show JUST the value, e.g., "24" not "The result is 24"
+
+BAD EXAMPLE (vague): "Write a Python program to calculate the area of a rectangle."
+BAD EXAMPLE (ambiguous list): "You have a list of integers [4, 2, 9, 7, 5, 1]. Write a Python program that computes and prints the sum of the squares."
+BAD EXAMPLE (formatted assumption): "Print the sum with a message like 'Sum: 24'"
+
+GOOD EXAMPLE (clear): "Create a list called 'numbers' containing [4, 2, 9, 7, 5, 1]. Compute and print the sum of the squares of all numbers in the list."
+GOOD EXAMPLE (clear): "Assign length = 6 and width = 4, then calculate and print the area of the rectangle."
+GOOD EXAMPLE (simple output): "Print the result of 6 * 4."
+
+Return ONLY valid JSON with keys:
+- problem (string) - specific problem with concrete values
+- explanation (string) - how to solve it
+- expected_output (string) - exact expected output (e.g., "24" or "[1, 2, 3]")
+- general_hints (array of strings)
+- subtopics_used (array of strings)
+- subtopic_hints (object)
+- lesson (string) // ONLY if main topic proficiency is 0
+
+IMPORTANT: The expected_output should be the exact string that print() would output, without extra formatting unless explicitly required by the problem.
+"""
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
             messages=[
-                {"role": "system", "content": "You create Python coding problems that use PRINT statements."},
-                {"role": "user", "content": f"""Create a simple Python problem about {concept}. Make sure that all necessary information to answer the question is included in the question
-
-Return JSON:
-{{"problem": "...", "expected_output": "..."}}"""}
+                {"role": "system", "content": "Return strict JSON only. No markdown."},
+                {"role": "user", "content": prompt},
             ],
-            max_tokens=150,
-            temperature=0.7
+            max_tokens=500,
+            temperature=0.7,
         )
 
-        data = json.loads(response.choices[0].message.content.strip())
-        return data["problem"], data["expected_output"]
+        raw = (response.choices[0].message.content or "").strip()
+        data = json.loads(raw)
+
+        return {
+            "problem": data.get("problem", ""),
+            "expected_output": data.get("expected_output", ""),
+            "explanation": data.get("explanation", ""),
+            "general_hints": data.get("general_hints", []),
+            "subtopics_used": data.get("subtopics_used", []),
+            "subtopic_hints": data.get("subtopic_hints", {}),
+            "lesson": data.get("lesson", ""),
+        }
 
     except Exception:
-        fallback = {
+        # Keep your fallbacks exactly as safety
+        SM2_FALLBACKS = {
             "loops": ("Print numbers 1 to 5", "1\n2\n3\n4\n5"),
             "strings": ("Print each character in hello", "h\ne\nl\nl\no"),
             "arrays": ("Print each element in [1,2,3]", "1\n2\n3"),
             "recursion": ("Print numbers 5 to 1", "5\n4\n3\n2\n1"),
             "conditionals": ("Print even if 4 is even", "even"),
-            "variables": ("Set x=10 and print it", "10")
+            "variables": ("Set x = 10 and print it", "10"),
         }
-        return fallback[concept]
+
+        NEW_FALLBACKS = {
+            "print_basics": ("Use print() to display the message Hello World.", "Hello World"),
+            "variables": ("Create a variable x with value 5 and print it.", "5"),
+            "primitive_data_types": ("Print an integer, a float, and a string, each on a new line.", "1\n2.5\nhello"),
+            "simple_operators": ("Print the result of 3 + 4.", "7"),
+            "lists": ("Create a list [1, 2, 3] and print it.", "[1, 2, 3]"),
+            "conditionals": ("If x = 3, print 'odd'.", "odd"),
+            "while_loops": ("Use a while loop to print numbers 1 to 3.", "1\n2\n3"),
+            "for_loops": ("Use a for loop to print numbers 1 to 3.", "1\n2\n3"),
+            "strings_advanced": ("Print the length of the string 'hello'.", "5"),
+            "basic_edge_cases": ("Print the result of dividing 10 by 1.", "10.0"),
+            "dictionaries": ("Create a dictionary with key 'a' and value 1, then print it.", "{'a': 1}"),
+            "functions": ("Define a function that prints 'hi' and call it.", "hi"),
+            "all_loops_advanced": ("Print numbers 1 to 5 using any loop.", "1\n2\n3\n4\n5"),
+        }
+
+        p, e = (
+            SM2_FALLBACKS.get(topic)
+            or NEW_FALLBACKS.get(topic)
+            or (f"Write a short Python program about {topic} that prints a simple result.", "OK")
+        )
+
+        lesson = ""
+        if float(profs.get(topic, 0.0)) == 0.0:
+            lesson = "Intro: try printing a simple value first (e.g., print(1)) and then build from there."
+
+        return {
+            "problem": p,
+            "expected_output": e,
+            "explanation": "",
+            "general_hints": [],
+            "subtopics_used": [],
+            "subtopic_hints": {},
+            "lesson": lesson,
+        }
+
+
+
 
 
 def evaluate_code_quality(code, problem):
@@ -250,6 +346,8 @@ def evaluate_code_quality(code, problem):
 
 
 def check_user_code(code, expected_output):
+
+
     try:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
             f.write(code)
@@ -261,25 +359,46 @@ def check_user_code(code, expected_output):
         stdout = (result.stdout or "").strip()
         stderr = (result.stderr or "").strip()
         correct = (result.returncode == 0) and (stdout == expected_output.strip())
+        print("DEBUG stdout repr:", repr(stdout))
+        print("DEBUG expected repr:", repr(expected_output.strip()))
+        print("DEBUG returncode:", result.returncode)
         return correct, stdout, stderr
     except subprocess.TimeoutExpired:
         return False, "", "Time limit exceeded (timeout)."
     except Exception as e:
         return False, "", f"Execution error: {e}"
+    
+
 
 
 @login_required
 def coding_demo(request):
     ensure_proficiency_rows(request.user)
+    days_decayed = apply_decay_if_needed(request.user)
+    profs = get_proficiencies(request.user)
+    wants_new_problem = (request.method == "POST" and "new_problem" in request.POST)
+    print("DECAY APPLIED:", days_decayed)
     print(connection.vendor)
 
     if request.method == "POST" and "reset_progress" in request.POST:
         TopicProgress.objects.filter(user=request.user).delete()
+
+        TopicProficiency.objects.filter(user=request.user).update(
+            proficiency=0.0,
+            last_practiced_at=None,
+        )
+        UserLearningProfile.objects.filter(user=request.user).update(
+            last_topic="",
+            last_decay_applied_at=timezone.now(),
+        )
+
+
         request.session.pop("due_practice_topic", None)
         request.session.pop("due_practice_problem", None)
         request.session.pop("due_practice_expected", None)
-        request.session.pop("current_problem", None)
-        request.session.pop("current_expected_output", None)
+        request.session.pop("current_problem_json", None)
+        request.session.pop("show_explanation", None)
+        request.session.pop("active_topic", None)
 
         
     result = None
@@ -291,7 +410,7 @@ def coding_demo(request):
         "due_submit_code" in request.POST or
         "due_new_problem" in request.POST or
         "due_code" in request.POST
-):
+    ):
         request.session["due_practice_open"] = True
     elif request.method == "POST" and (
         "run_code" in request.POST or
@@ -299,34 +418,45 @@ def coding_demo(request):
         "select_topic" in request.POST or
         "new_problem" in request.POST or
         "code" in request.POST
-):
+    ):
         request.session["due_practice_open"] = False
 
 
-    sr_map = get_sr_map_db(request.user)
-    recommended_topic = pick_recommended_topic(sr_map)
-
-    selected_topic = request.session.get("selected_topic", recommended_topic)
-    if selected_topic not in TOPICS:
-        selected_topic = recommended_topic
-
-    if request.method == "POST" and "select_topic" in request.POST:
-        selected_topic = request.POST.get("topic", recommended_topic)
-        request.session["selected_topic"] = selected_topic
-        request.session.pop("current_problem", None)
-        request.session.pop("current_expected_output", None)
+    if USE_SM2:
+        sr_map = get_sr_map_db(request.user)
+        recommended_topic = pick_recommended_topic(sr_map)
+    else:
+        sr_map = {}
+        profs = get_proficiencies(request.user)
 
     if request.method == "POST" and "new_problem" in request.POST:
-        request.session.pop("current_problem", None)
-        request.session.pop("current_expected_output", None)
+        request.session.pop("current_problem_json", None)
+        request.session.pop("show_explanation", None)
+        request.session.pop("active_topic", None)
+    active_topic = request.session.get("active_topic")
+    if not active_topic:
+        active_topic = choose_next_topic(request.user, profs)
+        request.session["active_topic"] = active_topic
 
-    if "current_problem" not in request.session:
-        ai_problem, expected_output = generate_problem_with_solution(selected_topic)
-        request.session["current_problem"] = ai_problem
-        request.session["current_expected_output"] = expected_output
+    selected_topic = active_topic
+    recommended_topic = active_topic
+
+    if "current_problem_json" not in request.session:
+        problem_json = generate_problem_with_solution(selected_topic, profs)
+        request.session["current_problem_json"] = problem_json
     else:
-        ai_problem = request.session["current_problem"]
-        expected_output = request.session["current_expected_output"]
+        problem_json = request.session["current_problem_json"]
+
+    ai_problem = problem_json.get("problem", "")
+    expected_output = problem_json.get("expected_output", "")
+    lesson = problem_json.get("lesson", "")
+    explanation = problem_json.get("explanation", "")
+
+
+    if request.method == "POST" and "i_dont_understand" in request.POST:
+        request.session["show_explanation"] = True
+
+    show_explanation = bool(request.session.get("show_explanation", False))
 
     if request.method == "POST" and "code" in request.POST:
         user_code = request.POST.get("code", "")
@@ -337,90 +467,114 @@ def coding_demo(request):
             result = f"Output:\n{output}"
 
         elif "submit_code" in request.POST:
-            fast_mode = os.getenv("SR_FAST_MODE") == "1"
-            grade = 5 if correct else 1
-            sr_map[selected_topic] = sm2_update_state(sr_map[selected_topic], grade, fast_mode)
-            save_topic_state_db(request.user, selected_topic, sr_map[selected_topic])
+            if USE_SM2 and selected_topic in SM2_TOPICS:
+                fast_mode = os.getenv("SR_FAST_MODE") == "1"
+                grade = 5 if correct else 1
+                sr_map[selected_topic] = sm2_update_state(sr_map[selected_topic], grade, fast_mode)
+                save_topic_state_db(request.user, selected_topic, sr_map[selected_topic])
+
+            delta = 1.0 if correct else -0.25
+            update_proficiency(request.user, topic=selected_topic, delta=delta)
+
             result = "Correct!" if correct else "Incorrect"
+
             if not correct:
                 evaluation_feedback = generate_hint_openai(
-                problem=ai_problem,
-                expected_output=expected_output,
-                code=user_code,
-                stdout=output,
-                stderr=stderr,
-                correct=correct,
+                    problem=ai_problem,
+                    expected_output=expected_output,
+                    code=user_code,
+                    stdout=output,
+                    stderr=stderr,
+                    correct=correct,
                 )
 
-    now = timezone.now()
-    fast_mode = os.getenv("SR_FAST_MODE") == "1"
-    soon_delta = timedelta(seconds=90) if fast_mode else timedelta(days=2)
 
-    due_now, due_soon, due_later = [], [], []
 
-    for topic, state in sr_map.items():
-        due_dt = parse_due(state["due"])
-        item = {"topic": topic, "state": state}
-        if due_dt <= now:
-            due_now.append(item)
-        elif due_dt <= now + soon_delta:
-            due_soon.append(item)
-        else:
-            due_later.append(item)
+    if USE_SM2:
+        now = timezone.now()
+        fast_mode = os.getenv("SR_FAST_MODE") == "1"
+        soon_delta = timedelta(seconds=90) if fast_mode else timedelta(days=2)
 
-    due_practice_topic = None
-    due_practice_problem = None
-    due_user_code = ""
-    due_result = None
-    due_evaluation_feedback = None
+        due_now, due_soon, due_later = [], [], []
 
-    if due_now:
-        new_due_topic = due_now[0]["topic"]
+        for topic, state in sr_map.items():
+            due_dt = parse_due(state["due"])
+            item = {"topic": topic, "state": state}
+            if due_dt <= now:
+                due_now.append(item)
+            elif due_dt <= now + soon_delta:
+                due_soon.append(item)
+            else:
+                due_later.append(item)
 
-        due_practice_topic = request.session.get("due_practice_topic")
-        if due_practice_topic != new_due_topic:
-            due_practice_topic = new_due_topic
-            request.session["due_practice_topic"] = due_practice_topic
-            request.session.pop("due_practice_problem", None)
-            request.session.pop("due_practice_expected", None)
+        due_practice_topic = None
+        due_practice_problem = None
+        due_user_code = ""
+        due_result = None
+        due_evaluation_feedback = None
 
-        if request.method == "POST" and "due_new_problem" in request.POST:
-            request.session.pop("due_practice_problem", None)
-            request.session.pop("due_practice_expected", None)
+        if due_now:
+            new_due_topic = due_now[0]["topic"]
 
-        if "due_practice_problem" not in request.session or "due_practice_expected" not in request.session:
-            p, e = generate_problem_with_solution(due_practice_topic)
-            request.session["due_practice_problem"] = p
-            request.session["due_practice_expected"] = e
-
-        due_practice_problem = request.session["due_practice_problem"]
-
-        if request.method == "POST" and ("due_run_code" in request.POST or "due_submit_code" in request.POST):
-            due_user_code = request.POST.get("due_code", "")
-            correct, output, stderr = check_user_code(due_user_code, request.session["due_practice_expected"])
-
-            if "due_run_code" in request.POST:
-                due_result = f"Output:\n{output}"
-
-            elif "due_submit_code" in request.POST:
-                grade = 5 if correct else 1
-                sr_map[due_practice_topic] = sm2_update_state(sr_map[due_practice_topic], grade, fast_mode)
-                save_topic_state_db(request.user, due_practice_topic, sr_map[due_practice_topic])
-                due_result = "Correct!" if correct else "Incorrect"
-                if not correct:
-                    due_evaluation_feedback = generate_hint_openai(
-                        problem=due_practice_problem,
-                        expected_output=request.session["due_practice_expected"],
-                        code=due_user_code,
-                        stdout=output,
-                        stderr=stderr,
-                        correct=correct,
-                        )
+            due_practice_topic = request.session.get("due_practice_topic")
+            if due_practice_topic != new_due_topic:
+                due_practice_topic = new_due_topic
+                request.session["due_practice_topic"] = due_practice_topic
                 request.session.pop("due_practice_problem", None)
                 request.session.pop("due_practice_expected", None)
 
-    due_practice_open = bool(request.session.get("due_practice_open", False))
+            if request.method == "POST" and "due_new_problem" in request.POST:
+                request.session.pop("due_practice_problem", None)
+                request.session.pop("due_practice_expected", None)
 
+            if "due_practice_problem" not in request.session or "due_practice_expected" not in request.session:
+                problem_json_due = generate_problem_with_solution(due_practice_topic, profs)
+                request.session["due_practice_problem"] = problem_json_due.get("problem", "")
+                request.session["due_practice_expected"] = problem_json_due.get("expected_output", "")
+
+            due_practice_problem = request.session["due_practice_problem"]
+
+            if request.method == "POST" and ("due_run_code" in request.POST or "due_submit_code" in request.POST):
+                due_user_code = request.POST.get("due_code", "")
+                correct, output, stderr = check_user_code(due_user_code, request.session["due_practice_expected"])
+
+                if "due_run_code" in request.POST:
+                    due_result = f"Output:\n{output}"
+
+                elif "due_submit_code" in request.POST:
+                    grade = 5 if correct else 1
+                    sr_map[due_practice_topic] = sm2_update_state(sr_map[due_practice_topic], grade, fast_mode)
+                    save_topic_state_db(request.user, due_practice_topic, sr_map[due_practice_topic])
+                    due_result = "Correct!" if correct else "Incorrect"
+                    if not correct:
+                        due_evaluation_feedback = generate_hint_openai(
+                            problem=due_practice_problem,
+                            expected_output=request.session["due_practice_expected"],
+                            code=due_user_code,
+                            stdout=output,
+                            stderr=stderr,
+                            correct=correct,
+                        )
+                    request.session.pop("due_practice_problem", None)
+                    request.session.pop("due_practice_expected", None)
+                    
+
+        due_practice_open = bool(request.session.get("due_practice_open", False))
+    else:
+        due_now, due_soon, due_later = [], [], []
+        due_practice_topic = None
+        due_practice_problem = None
+        due_user_code = ""
+        due_result = None
+        due_evaluation_feedback = None
+        due_practice_open = False
+
+
+    proficiency_debug = (
+        TopicProficiency.objects
+        .filter(user=request.user)
+        .order_by("topic")
+    )
 
 
     return render(request, "coding_demo.html", {
@@ -441,7 +595,12 @@ def coding_demo(request):
         "due_result": due_result,
         "due_evaluation_feedback": due_evaluation_feedback,
         "due_practice_open": due_practice_open,
-        "due_practice_open": due_practice_open,
+        "days_decayed": days_decayed,
+        "proficiency_debug": proficiency_debug,
+        "lesson": lesson,
+        "explanation": explanation,
+        "show_explanation": show_explanation,
+        "expected_output": expected_output,
     })
 
 
