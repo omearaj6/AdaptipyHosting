@@ -89,3 +89,18 @@ class TopicProficiency(models.Model):
 
     def __str__(self):
         return f"{self.user_id}:{self.topic}={self.proficiency}"
+
+
+class UserNotebook(models.Model):
+    """Simple one-notebook-per-user model."""
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notebook",
+        primary_key=True
+    )
+    content = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)  # Just to know when it was last saved
+
+    def __str__(self):
+        return f"Notebook for {self.user.username}"

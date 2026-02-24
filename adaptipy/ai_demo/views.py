@@ -7,19 +7,18 @@ from dotenv import load_dotenv
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.decorators import login_required
-from ai_demo.models import TopicProgress, TopicProficiency, UserLearningProfile
+from ai_demo.models import TopicProgress, TopicProficiency, UserLearningProfile, UserNotebook
 from .proficiencies import ensure_proficiency_rows, apply_decay_if_needed, update_proficiency, choose_next_topic, get_proficiencies
 from django.db import connection
 from ai_demo.models import ALL_TOPICS
+from django.views.decorators.csrf import csrf_exempt
+from ai_demo.utils.ruff_linter import get_ruff_feedback
 
 load_dotenv()
 
 TOPICS = ALL_TOPICS
 SM2_TOPICS = ["loops", "strings", "arrays", "recursion", "conditionals", "variables"]
 USE_SM2 = False
-
-
-
 
 
 
@@ -138,9 +137,6 @@ def save_topic_state_db(user, topic, state):
             "due": due_dt,
         },
     )
-
-
-
 
 
 
@@ -340,7 +336,6 @@ IMPORTANT: The expected_output should be the exact string that print() would out
 
 
 
-
 def evaluate_code_quality(code, problem):
     return "Review your logic and syntax carefully."
 
@@ -370,6 +365,30 @@ def check_user_code(code, expected_output):
     
 
 
+@login_required
+def save_notebook(request):
+    """Simple notebook save endpoint"""
+    if request.method == 'POST':
+        content = request.POST.get('content', '')
+
+        # Get or create notebook
+        notebook, created = UserNotebook.objects.get_or_create(
+            user=request.user,
+            defaults={'content': content}
+        )
+
+        # Update if not newly created
+        if not created:
+            notebook.content = content
+            notebook.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Notebook saved'
+        })
+
+    return JsonResponse({'success': False, 'error': 'POST only'}, status=400)
+
 
 @login_required
 def coding_demo(request):
@@ -379,6 +398,13 @@ def coding_demo(request):
     wants_new_problem = (request.method == "POST" and "new_problem" in request.POST)
     print("DECAY APPLIED:", days_decayed)
     print(connection.vendor)
+
+    ruff_feedback = None
+
+    notebook, created = UserNotebook.objects.get_or_create(
+            user=request.user,
+            defaults={'content': 'Welcome to your Python notebook!\n\nWrite notes, code snippets, or anything you want to remember here.\n\n- Notes are saved automatically when you click away.\n- Use this space for anything helpful!'}
+        )
 
     if request.method == "POST" and "reset_progress" in request.POST:
         TopicProgress.objects.filter(user=request.user).delete()
@@ -467,6 +493,10 @@ def coding_demo(request):
             result = f"Output:\n{output}"
 
         elif "submit_code" in request.POST:
+            user_code = request.POST.get("code", "")
+            correct, output, stderr = check_user_code(user_code, expected_output)
+            ruff_feedback = get_ruff_feedback(user_code)
+
             if USE_SM2 and selected_topic in SM2_TOPICS:
                 fast_mode = os.getenv("SR_FAST_MODE") == "1"
                 grade = 5 if correct else 1
@@ -601,6 +631,8 @@ def coding_demo(request):
         "explanation": explanation,
         "show_explanation": show_explanation,
         "expected_output": expected_output,
+        "notebook_content": notebook.content,
+        "ruff_feedback": ruff_feedback,
     })
 
 

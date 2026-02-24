@@ -51,6 +51,23 @@
         </div>
     {% endif %}
 
+    <div id="notebook-section" style="position: fixed; top: 20px; right: 20px; width: 300px; z-index: 1000;">
+        <div style="background: white; border: 2px solid #007bff; border-radius: 5px; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="margin: 0; color: #007bff;">📓 My Notebook</h4>
+                <span id="notebook-save-status" style="font-size: 12px; color: #666;">Auto-save on blur</span>
+            </div>
+
+            <textarea
+                    id="notebook-textarea"
+                    rows="12"
+                    style="width: 100%; font-family: monospace; font-size: 13px; padding: 8px; border: 1px solid #ddd; border-radius: 3px; resize: vertical;"
+                    placeholder="Write your Python notes here..."
+            >{{ notebook_content|default:"" }}</textarea>
+
+        </div>
+    </div>
+
     <div class="header">
         <h1>Python Coding Practice</h1>
         <form method="POST" style="display: inline;">
@@ -134,6 +151,14 @@
     {% if evaluation_feedback %}
     <div class="result feedback">
         <strong>Hint:</strong> {{ evaluation_feedback }}
+    </div>
+    {% endif %}
+
+    <!-- Ruff Feedback Section -->
+    {% if ruff_feedback %}
+    <div class="result feedback" style="background: #fff3cd; color: #856404; border: 1px solid #ffeaa7;">
+        <strong>Ruff Code Analysis:</strong>
+        <pre style="white-space: pre-wrap; margin: 10px 0; font-size: 13px;">{{ ruff_feedback }}</pre>
     </div>
     {% endif %}
 
@@ -365,6 +390,75 @@
         {% endfor %}
     </div>
     {% endif %}
+
+    <script>
+        // Simple notebook functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const notebookTextarea = document.getElementById('notebook-textarea');
+            const saveStatus = document.getElementById('notebook-save-status');
+            let saveTimeout = null;
+
+            // Save notebook function
+            function saveNotebook() {
+                    const content = notebookTextarea.value;
+
+                    // Show saving status
+                    saveStatus.textContent = 'Saving...';
+                    saveStatus.style.color = '#007bff';
+
+                // Send to server
+                const formData = new FormData();
+                formData.append('content', content);
+                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+                fetch('/ai/save_notebook/', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        saveStatus.textContent = 'Saved ✓';
+                        saveStatus.style.color = '#28a745';
+
+                        // Reset status after 2 seconds
+                        setTimeout(() => {
+                            saveStatus.textContent = 'Auto-save on blur';
+                            saveStatus.style.color = '#666';
+                        }, 2000);
+                    } else {
+                        saveStatus.textContent = 'Save failed!';
+                        saveStatus.style.color = '#dc3545';
+                    }
+                })
+                .catch(error => {
+                    console.error('Save error:', error);
+                    saveStatus.textContent = 'Network error!';
+                    saveStatus.style.color = '#dc3545';
+                });
+            }
+
+            // Save on blur (when user clicks away from textarea)
+            notebookTextarea.addEventListener('blur', saveNotebook);
+
+            // Also save on Ctrl+S or Cmd+S
+            notebookTextarea.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    saveNotebook();
+                }
+            });
+
+            // Optional: Auto-save every 30 seconds if content changed
+            let lastContent = notebookTextarea.value;
+            setInterval(() => {
+                if (notebookTextarea.value !== lastContent) {
+                    lastContent = notebookTextarea.value;
+                    saveNotebook();
+                }
+            }, 30000);
+        });
+    </script>
 
 </body>
 </html>
