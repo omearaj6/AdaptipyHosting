@@ -1,0 +1,190 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Notebook</title>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      margin: 0;
+      background: #0f172a;
+      color: #eaf0ff;
+    }
+
+    .wrap {
+      width: min(1100px, 95vw);
+      margin: 0 auto;
+      padding: 30px 0 50px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .card {
+      background: #111c33;
+      border: 1px solid #223055;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 70vh;
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid #223055;
+      background: #0b1224;
+      color: #eaf0ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: vertical;
+    }
+
+    .actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    a.btn {
+      appearance: none;
+      border: 1px solid #2c3c66;
+      background: #0b1224;
+      color: #eaf0ff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    a.primary {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: white;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #cfe0ff;
+      min-height: 20px;
+    }
+
+    .muted {
+      font-size: 14px;
+      color: #a9bde9;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <div class="topbar">
+      <div>
+        <h2 style="margin:0;">Notebook</h2>
+        <div class="muted">
+          Logged in as <strong>{{ user.username }}</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="btn primary" href="{% url 'coding_demo' %}">Back to practice</a>
+        <a class="btn" href="/">Home</a>
+        <a class="btn" href="/accounts/logout/">Log out</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <form method="post" action="{% url 'save_notebook' %}" id="notebookForm">
+        {% csrf_token %}
+        <textarea name="content" id="notebookContent">{{ notebook.content }}</textarea>
+      </form>
+
+      <div class="status" id="status"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const form = document.getElementById("notebookForm");
+    const textarea = document.getElementById("notebookContent");
+    const statusEl = document.getElementById("status");
+
+    let debounceTimer = null;
+    let statusTimer = null;
+    let lastSavedValue = textarea.value;
+    let saving = false;
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+      if (statusTimer) clearTimeout(statusTimer);
+      if (msg) {
+        statusTimer = setTimeout(() => { statusEl.textContent = ""; }, 1200);
+      }
+    }
+
+    async function saveNotebook() {
+      if (saving) return;
+
+      const current = textarea.value;
+      if (current === lastSavedValue) return;
+
+      saving = true;
+      statusEl.textContent = "Saving...";
+
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+          credentials: "same-origin"
+        });
+
+        if (response.ok) {
+          lastSavedValue = current;
+          setStatus("Saved.");
+        } else {
+          setStatus("Save failed.");
+        }
+      } catch (e) {
+        setStatus("Save failed.");
+      } finally {
+        saving = false;
+      }
+    }
+
+    textarea.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(saveNotebook, 800);
+    });
+
+    textarea.addEventListener("blur", () => {
+      clearTimeout(debounceTimer);
+      saveNotebook();
+    });
+
+    window.addEventListener("beforeunload", () => {
+      const current = textarea.value;
+      if (current === lastSavedValue) return;
+
+      try {
+        const data = new FormData(form);
+        navigator.sendBeacon?.(form.action, data);
+      } catch (_) {}
+    });
+  </script>
+</body>
+</html>

@@ -639,3 +639,14 @@ def coding_demo(request):
 def recommend_problem(request):
     weak_area = request.GET.get("weakness", "loops")
     return JsonResponse({"recommended_topic": weak_area})
+
+def home(request):
+    return render(request, "home.html")
+
+@login_required
+def notebook_page(request):
+    notebook, _ = UserNotebook.objects.get_or_create(
+        user=request.user,
+        defaults={"content": ""}
+    )
+    return render(request, "notebook.html", {"notebook": notebook})

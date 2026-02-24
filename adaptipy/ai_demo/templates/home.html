@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Adaptipy</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:#0f172a; color:#eaf0ff; }
+    .wrap { width:min(920px, 92vw); margin:0 auto; padding:48px 0; }
+    .hero { background:#111c33; border:1px solid #223055; border-radius:18px; padding:28px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+    h1 { margin:0 0 10px; font-size:34px; }
+    p { margin:0; line-height:1.6; color:#cfe0ff; }
+    .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:18px; }
+    a.btn { text-decoration:none; padding:10px 14px; border-radius:12px; border:1px solid #2c3c66; color:#eaf0ff; }
+    a.primary { background:#3b82f6; border-color:#3b82f6; color:white; }
+    .section { margin-top:22px; background:#0b1224; border:1px solid #1c2a4f; border-radius:18px; padding:22px; }
+    h2 { margin:0 0 10px; font-size:20px; }
+    ul { margin:0; padding-left:18px; color:#cfe0ff; line-height:1.65; }
+    code { background:#0b1224; padding:2px 6px; border-radius:8px; border:1px solid #1c2a4f; }
+    .muted { color:#a9bde9; font-size:14px; margin-top:10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Adaptive AI Python Tutor</h1>
+      
+      <p>
+        Practice Python with adaptive problem selection, deterministic evaluation, and targeted feedback.
+      </p>
+
+      <div class="actions">
+        {% if user.is_authenticated %}
+          <div class="muted">Logged in as <strong>{{ user.username }}</strong></div>
+          <a class="btn primary" href="/ai/">Continue practicing</a>
+          <a class="btn" href="/ai/notebook/">Open notebook</a>
+          <a class="btn" href="/accounts/password_change/">Account</a>
+          <a class="btn" href="/accounts/logout/">Log out</a>
+        {% else %}
+          <a class="btn primary" href="/accounts/login/?next=/ai/">Log in to start</a>
+        {% endif %}
+      </div>
+
+      {% if not user.is_authenticated %}
+        <div class="muted">
+          You’ll be prompted to log in before accessing practice or your notebook.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="notebook">
+  </div>
+
+
+</body>
+</html>
