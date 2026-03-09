@@ -13,6 +13,8 @@ from django.db import connection
 from ai_demo.models import ALL_TOPICS
 from django.views.decorators.csrf import csrf_exempt
 from ai_demo.utils.ruff_linter import get_ruff_feedback
+from ai_demo.utils.ollama_client import ollama_generate
+
 
 load_dotenv()
 
@@ -650,3 +652,13 @@ def notebook_page(request):
         defaults={"content": ""}
     )
     return render(request, "notebook.html", {"notebook": notebook})
+
+
+
+@login_required
+def test_ollama(request):
+    try:
+        response = ollama_generate("Generate a coding problem about lists for a beginner")
+        return JsonResponse({"ollama_response": response})
+    except Exception as e:
+        return JsonResponse({"error": str(e)})
