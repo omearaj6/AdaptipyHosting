@@ -11,14 +11,19 @@ app.get("/health", (_req, res) => {
 app.post("/run", async (req, res) => {
   const { code, timeoutMs = 5000 } = req.body || {};
 
+  console.log("RUN REQUEST RECEIVED");
+
   if (typeof code !== "string") {
+    console.log("INVALID CODE PAYLOAD");
     return res.status(400).json({ error: "code must be a string" });
   }
 
   let sandbox;
 
   try {
+    console.log("ABOUT TO CREATE SANDBOX");
     sandbox = await compute.sandbox.create();
+    console.log("SANDBOX CREATED");
 
     const wrapped = `
 import signal, sys
@@ -33,7 +38,9 @@ signal.alarm(${Math.max(1, Math.ceil(timeoutMs / 1000))})
 ${code}
 `;
 
+    console.log("ABOUT TO RUN CODE");
     const result = await sandbox.runCode(wrapped, "python");
+    console.log("CODE EXECUTED", result);
 
     res.json({
       stdout: result.stdout ?? "",
@@ -41,12 +48,17 @@ ${code}
       exitCode: result.exitCode ?? 0
     });
   } catch (err) {
+    console.error("RUN ERROR:", err);
     res.status(500).json({ error: String(err) });
   } finally {
     if (sandbox) {
       try {
+        console.log("ABOUT TO DESTROY SANDBOX");
         await sandbox.destroy();
-      } catch (_) {}
+        console.log("SANDBOX DESTROYED");
+      } catch (destroyErr) {
+        console.error("DESTROY ERROR:", destroyErr);
+      }
     }
   }
 });
