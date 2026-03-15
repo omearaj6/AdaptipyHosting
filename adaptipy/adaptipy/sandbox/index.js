@@ -1,5 +1,14 @@
 import express from "express";
-import { compute } from "computesdk";
+
+if (process.env.TARGET_RAILWAY_PROJECT_ID) {
+  process.env.RAILWAY_PROJECT_ID = process.env.TARGET_RAILWAY_PROJECT_ID;
+}
+
+if (process.env.TARGET_RAILWAY_ENVIRONMENT_ID) {
+  process.env.RAILWAY_ENVIRONMENT_ID = process.env.TARGET_RAILWAY_ENVIRONMENT_ID;
+}
+
+const { compute } = await import("computesdk");
 
 const app = express();
 app.use(express.json({ limit: "256kb" }));
