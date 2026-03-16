@@ -1,14 +1,20 @@
 import express from "express";
+import { compute } from "computesdk";
 
-if (process.env.TARGET_RAILWAY_PROJECT_ID) {
-  process.env.RAILWAY_PROJECT_ID = process.env.TARGET_RAILWAY_PROJECT_ID;
-}
+compute.setConfig({
+  computesdkApiKey: process.env.COMPUTESDK_API_KEY,
+  provider: "railway",
+  railway: {
+    apiToken: process.env.RAILWAY_API_KEY,
+    projectId: process.env.RAILWAY_PROJECT_ID,
+    environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
+  },
+});
 
-if (process.env.TARGET_RAILWAY_ENVIRONMENT_ID) {
-  process.env.RAILWAY_ENVIRONMENT_ID = process.env.TARGET_RAILWAY_ENVIRONMENT_ID;
-}
-
-const { compute } = await import("computesdk");
+console.log("RAILWAY_PROJECT_ID:", process.env.RAILWAY_PROJECT_ID);
+console.log("RAILWAY_ENVIRONMENT_ID:", process.env.RAILWAY_ENVIRONMENT_ID);
+console.log("RAILWAY_API_KEY present:", !!process.env.RAILWAY_API_KEY);
+console.log("COMPUTESDK_API_KEY present:", !!process.env.COMPUTESDK_API_KEY);
 
 const app = express();
 app.use(express.json({ limit: "256kb" }));
@@ -20,10 +26,7 @@ app.get("/health", (_req, res) => {
 app.post("/run", async (req, res) => {
   const { code, timeoutMs = 5000 } = req.body || {};
 
-  console.log("RUN REQUEST RECEIVED");
-
   if (typeof code !== "string") {
-    console.log("INVALID CODE PAYLOAD");
     return res.status(400).json({ error: "code must be a string" });
   }
 
@@ -47,9 +50,7 @@ signal.alarm(${Math.max(1, Math.ceil(timeoutMs / 1000))})
 ${code}
 `;
 
-    console.log("ABOUT TO RUN CODE");
     const result = await sandbox.runCode(wrapped, "python");
-    console.log("CODE EXECUTED", result);
 
     res.json({
       stdout: result.stdout ?? "",
@@ -62,9 +63,7 @@ ${code}
   } finally {
     if (sandbox) {
       try {
-        console.log("ABOUT TO DESTROY SANDBOX");
         await sandbox.destroy();
-        console.log("SANDBOX DESTROYED");
       } catch (destroyErr) {
         console.error("DESTROY ERROR:", destroyErr);
       }
