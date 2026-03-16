@@ -8,6 +8,11 @@ app.get("/health", (_req, res) => {
 });
 
 app.post("/run", async (req, res) => {
+  const token = req.get("X-API-Token");
+  if (!process.env.SECRET_PASSPHRASE || token !== process.env.SECRET_PASSPHRASE) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
   const { code, timeoutMs = 5000 } = req.body || {};
   console.log("RUN REQUEST RECEIVED");
 
