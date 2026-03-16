@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "dependencies": {
-      "computesdk": "latest",
+      "computesdk": "1.17.0",
       "express": "^4.19.2"
     },
     "scripts": {
