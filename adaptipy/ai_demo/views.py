@@ -3,6 +3,7 @@ from django.shortcuts import render
 import subprocess
 import tempfile
 import os, json, re
+import requests
 from dotenv import load_dotenv
 from django.utils import timezone
 from datetime import timedelta
@@ -14,6 +15,7 @@ from ai_demo.models import ALL_TOPICS
 from django.views.decorators.csrf import csrf_exempt
 from ai_demo.utils.ruff_linter import get_ruff_feedback
 from ai_demo.utils.ollama_client import ollama_generate
+
 
 
 load_dotenv()
@@ -343,25 +345,38 @@ def evaluate_code_quality(code, problem):
 
 
 def check_user_code(code, expected_output):
-
-
     try:
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-            f.write(code)
-            path = f.name
+        runner_url = os.environ["RUNNER_URL"]
+        runner_secret = os.environ["SECRET_PASSPHRASE"]
 
-        result = subprocess.run(['python3', path], capture_output=True, text=True, timeout=5)
-        os.unlink(path)
+        response = requests.post(
+            f"{runner_url}/run",
+            json={
+                "code": code,
+                "timeoutMs": 5000,
+            },
+            headers={
+                "X-API-Token": runner_secret,
+            },
+            timeout=15,
+        )
 
-        stdout = (result.stdout or "").strip()
-        stderr = (result.stderr or "").strip()
-        correct = (result.returncode == 0) and (stdout == expected_output.strip())
+        data = response.json()
+
+        stdout = (data.get("stdout") or "").strip()
+        stderr = (data.get("stderr") or "").strip()
+        exit_code = data.get("exitCode", 1)
+
+        correct = (exit_code == 0) and (stdout == expected_output.strip())
+
         print("DEBUG stdout repr:", repr(stdout))
         print("DEBUG expected repr:", repr(expected_output.strip()))
-        print("DEBUG returncode:", result.returncode)
+        print("DEBUG exitCode:", exit_code)
+
         return correct, stdout, stderr
-    except subprocess.TimeoutExpired:
-        return False, "", "Time limit exceeded (timeout)."
+
+    except requests.Timeout:
+        return False, "", "Execution service timed out."
     except Exception as e:
         return False, "", f"Execution error: {e}"
     
