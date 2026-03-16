@@ -510,8 +510,6 @@ def coding_demo(request):
             result = f"Output:\n{output}"
 
         elif "submit_code" in request.POST:
-            user_code = request.POST.get("code", "")
-            correct, output, stderr = check_user_code(user_code, expected_output)
             ruff_feedback = get_ruff_feedback(user_code)
 
             if USE_SM2 and selected_topic in SM2_TOPICS:
