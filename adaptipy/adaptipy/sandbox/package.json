@@ -1,12 +1,11 @@
 {
-    "name": "adaptipy-runner",
-    "private": true,
-    "type": "module",
-    "dependencies": {
-      "computesdk": "1.17.0",
-      "express": "^4.19.2"
-    },
-    "scripts": {
-      "start": "node index.js"
-    }
+  "name": "adaptipy-runner",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "scripts": {
+    "start": "node index.js"
   }
+}

@@ -1,20 +1,4 @@
 import express from "express";
-import { compute } from "computesdk";
-
-compute.setConfig({
-  computesdkApiKey: process.env.COMPUTESDK_API_KEY,
-  provider: "railway",
-  railway: {
-    apiToken: process.env.RAILWAY_API_KEY,
-    projectId: process.env.RAILWAY_PROJECT_ID,
-    environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
-  },
-});
-
-console.log("RAILWAY_PROJECT_ID:", process.env.RAILWAY_PROJECT_ID);
-console.log("RAILWAY_ENVIRONMENT_ID:", process.env.RAILWAY_ENVIRONMENT_ID);
-console.log("RAILWAY_API_KEY present:", !!process.env.RAILWAY_API_KEY);
-console.log("COMPUTESDK_API_KEY present:", !!process.env.COMPUTESDK_API_KEY);
 
 const app = express();
 app.use(express.json({ limit: "256kb" }));
@@ -25,49 +9,37 @@ app.get("/health", (_req, res) => {
 
 app.post("/run", async (req, res) => {
   const { code, timeoutMs = 5000 } = req.body || {};
+  console.log("RUN REQUEST RECEIVED");
 
   if (typeof code !== "string") {
     return res.status(400).json({ error: "code must be a string" });
   }
 
-  let sandbox;
-
   try {
-    console.log("ABOUT TO CREATE SANDBOX");
-    sandbox = await compute.sandbox.create();
-    console.log("SANDBOX CREATED");
+    const response = await fetch("https://ce.judge0.com/submissions?wait=true", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        language_id: 109,
+        source_code: code,
+        stdin: "",
+        cpu_time_limit: Math.max(1, Math.ceil(timeoutMs / 1000))
+      })
+    });
 
-    const wrapped = `
-import signal, sys
-
-def _timeout(signum, frame):
-    print("Time limit exceeded (timeout).", file=sys.stderr)
-    sys.exit(124)
-
-signal.signal(signal.SIGALRM, _timeout)
-signal.alarm(${Math.max(1, Math.ceil(timeoutMs / 1000))})
-
-${code}
-`;
-
-    const result = await sandbox.runCode(wrapped, "python");
+    const result = await response.json();
+    console.log("JUDGE0 RESPONSE:", result);
 
     res.json({
       stdout: result.stdout ?? "",
-      stderr: result.stderr ?? "",
-      exitCode: result.exitCode ?? 0
+      stderr: result.stderr ?? result.compile_output ?? result.message ?? "",
+      exitCode: result.status?.id === 3 ? 0 : 1
     });
   } catch (err) {
     console.error("RUN ERROR:", err);
-    res.status(500).json({ error: String(err) });
-  } finally {
-    if (sandbox) {
-      try {
-        await sandbox.destroy();
-      } catch (destroyErr) {
-        console.error("DESTROY ERROR:", destroyErr);
-      }
-    }
+    res.status(500).json({ error: "Execution service temporarily unavailable." });
   }
 });
 
