@@ -3,7 +3,7 @@ import random
 from django.db import transaction
 from django.utils import timezone
 
-from .models import UserLearningProfile, TopicProficiency, ALL_TOPICS
+from .models import UserLearningProfile, TopicProficiency, ALL_TOPICS, TOPICS_LEVEL_1, TOPICS_LEVEL_2
 
 DECAY_PER_DAY = float(os.getenv("DECAY_PER_DAY", "0.1"))
 
@@ -99,9 +99,8 @@ def choose_next_topic(user, profs: dict) -> str:
     profile = UserLearningProfile.objects.get(user=user)
     last_topic = profile.last_topic or ""
 
-    lvl1 = ["print_basics", "variables", "primitive_data_types", "simple_operators"]
-    lvl2 = ["while_loops", "for_loops", "conditionals", "lists", "strings_advanced", "basic_edge_cases"]
-    lvl3 = ["dictionaries", "functions", "all_loops_advanced"]
+    lvl1 = TOPICS_LEVEL_1
+    lvl2 = TOPICS_LEVEL_2
 
     def p(t: str) -> float:
         return float(profs.get(t, 0.0))
@@ -113,9 +112,6 @@ def choose_next_topic(user, profs: dict) -> str:
 
     if all(p(t) >= 3.0 for t in lvl1):
         pool += lvl2
-
-        if all(p(t) >= 3.0 for t in lvl2):
-            pool += lvl3
 
     now = timezone.now()
 

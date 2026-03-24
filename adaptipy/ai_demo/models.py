@@ -3,6 +3,7 @@ from django.conf import settings
 from django.utils import timezone
 
 
+# for SM2, could be removed
 class TopicProgress(models.Model):
     """
     One SM-2 record per (user, topic).
@@ -46,11 +47,10 @@ class TopicProgress(models.Model):
 
 
 
-TOPICS_LEVEL_1 = ["print_basics", "variables", "primitive_data_types", "simple_operators"]
-TOPICS_LEVEL_2 = ["while_loops", "for_loops", "conditionals", "lists", "strings_advanced", "basic_edge_cases"]
-TOPICS_LEVEL_3 = ["dictionaries", "functions", "all_loops_advanced"]
+TOPICS_LEVEL_1 = ["print_basics", "variables", "operators", "strings"]
+TOPICS_LEVEL_2 = ["lists", "conditionals", "for_loops", "while_loops"]
 
-ALL_TOPICS = TOPICS_LEVEL_1 + TOPICS_LEVEL_2 + TOPICS_LEVEL_3
+ALL_TOPICS = TOPICS_LEVEL_1 + TOPICS_LEVEL_2
 TOPIC_CHOICES = [(t, t) for t in ALL_TOPICS]
 
 
