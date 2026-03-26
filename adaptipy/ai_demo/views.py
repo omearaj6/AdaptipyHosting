@@ -724,6 +724,7 @@ def coding_demo(request):
         request.session.pop("current_problem_json", None)
         request.session.pop("show_explanation", None)
         request.session.pop("active_topic", None)
+        request.session.pop("current_problem_awarded", None)
     active_topic = request.session.get("active_topic")
     if not active_topic:
         active_topic = choose_next_topic(request.user, profs)
@@ -735,6 +736,7 @@ def coding_demo(request):
     if "current_problem_json" not in request.session:
         problem_json = generate_problem_with_solution(selected_topic, profs)
         request.session["current_problem_json"] = problem_json
+        request.session["current_problem_awarded"] = False
     else:
         problem_json = request.session["current_problem_json"]
 
@@ -766,8 +768,18 @@ def coding_demo(request):
                 sr_map[selected_topic] = sm2_update_state(sr_map[selected_topic], grade, fast_mode)
                 save_topic_state_db(request.user, selected_topic, sr_map[selected_topic])
 
-            delta = 1.0 if correct else -0.25
-            update_proficiency(request.user, topic=selected_topic, delta=delta)
+            already_awarded = request.session.get("current_problem_awarded", False)
+
+            if correct:
+                if not already_awarded:
+                    update_proficiency(request.user, topic=selected_topic, delta=1.0)
+                    request.session["current_problem_awarded"] = True
+                    result = "Correct!"
+                else:
+                    result = "Correct! Proficiency already awarded for this problem."
+            else:
+                update_proficiency(request.user, topic=selected_topic, delta=-0.25)
+                result = "Incorrect"
 
             result = "Correct!" if correct else "Incorrect"
 
@@ -909,6 +921,7 @@ def coding_demo(request):
         "expected_output": expected_output,
         "notebook_content": notebook.content,
         "ruff_feedback": ruff_feedback,
+        "current_problem_awarded": request.session.get("current_problem_awarded", False),
     })
 
 

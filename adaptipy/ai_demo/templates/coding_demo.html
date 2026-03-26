@@ -40,6 +40,8 @@
         #due-editor {height: 300px; border: 1px solid #ccc;}
         .lesson, .explanation {background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin: 12px 0; max-width: 100%; box-sizing: border-box;}
         .lesson pre, .explanation pre {margin: 0; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+        .btn:disabled {background: #999; cursor: not-allowed;opacity: 0.7;
+}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 
@@ -133,7 +135,7 @@
         
         <div class="button-group">
             <button type="submit" name="run_code" class="btn run-code-btn">Run Code</button>
-            <button type="submit" name="submit_code" class="btn new-problem-btn">Submit</button>
+            <button type="submit" name="submit_code" class="btn new-problem-btn" {% if current_problem_awarded %}disabled {% endif %}>Submit</button>
         </div>
     </form>
 
