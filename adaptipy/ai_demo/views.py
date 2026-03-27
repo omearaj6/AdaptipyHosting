@@ -535,7 +535,6 @@ def generate_problem_with_solution(topic: str, profs: dict) -> dict:
         }
 
     except Exception:
-        # Keep your fallbacks exactly as safety
         SM2_FALLBACKS = {
             "loops": ("Print numbers 1 to 5", "1\n2\n3\n4\n5"),
             "strings": ("Print each character in hello", "h\ne\nl\nl\no"),
@@ -693,6 +692,7 @@ def coding_demo(request):
 
         
     result = None
+    result_type = None
     user_code = ""
     evaluation_feedback = None
 
@@ -758,6 +758,7 @@ def coding_demo(request):
 
         if "run_code" in request.POST:
             result = f"Output:\n{output}"
+            result_type = "run"
 
         elif "submit_code" in request.POST:
             ruff_feedback = get_ruff_feedback(user_code)
@@ -781,8 +782,7 @@ def coding_demo(request):
                 update_proficiency(request.user, topic=selected_topic, delta=-0.25)
                 result = "Incorrect"
 
-            result = "Correct!" if correct else "Incorrect"
-
+            result_type = "success" if correct else "error"
             if correct:
                 # Generate improvement feedback for correct code
                 evaluation_feedback = generate_improvement_feedback(
@@ -922,6 +922,7 @@ def coding_demo(request):
         "notebook_content": notebook.content,
         "ruff_feedback": ruff_feedback,
         "current_problem_awarded": request.session.get("current_problem_awarded", False),
+        "result_type": result_type,
     })
 
 
