@@ -894,6 +894,10 @@ def coding_demo(request):
         .order_by("topic")
     )
 
+    profs = get_proficiencies(request.user)
+    chart_labels = ALL_TOPICS
+    chart_values = [float(profs.get(topic, 0.0)) for topic in chart_labels]
+
 
     return render(request, "coding_demo.html", {
         "result": result,
@@ -923,6 +927,8 @@ def coding_demo(request):
         "ruff_feedback": ruff_feedback,
         "current_problem_awarded": request.session.get("current_problem_awarded", False),
         "result_type": result_type,
+        "chart_labels": chart_labels,
+        "chart_values": chart_values,
     })
 
 

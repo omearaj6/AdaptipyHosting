@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+    <head>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -19,6 +20,13 @@
         .btn:disabled {background: #999; cursor: not-allowed;opacity: 0.7;}
         .run {background: #e7f3ff; color: #2a88e5; border: 1px solid #b8daff;}
     </style>
+    
+    <title>Python Coding Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    
+</head>
+<body>
     <div class="header" style="justify-content: space-between;">    
         <div style="display: flex; align-items: center; gap: 12px;">
             {% if user.is_authenticated %}
@@ -41,13 +49,7 @@
             {% endif %}
         </div>
     </div>
-    
-    <title>Python Coding Demo</title>
     <a href="/" class="btn run-code-btn" style="padding: 5px 10px; font-size: 13px;">Home</a>
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
-
-</head>
-<body>
     {% if days_decayed %}
         <div style="font-size: 12px; color: #777; margin-bottom: 6px;">
             Proficiency decay applied: {{ days_decayed }} day{{ days_decayed|pluralize }}
@@ -223,7 +225,16 @@
         }
     });
     </script>
-    
+
+
+        <div style="margin-top: 30px; background: #f8f9fa; padding: 16px; border-radius: 8px;">
+            <h3 style="margin-top: 0;">Skill Map</h3>
+            <div style="max-width: 500px; margin: 0 auto; height: 500px;">
+                <canvas id="proficiencyRadar"></canvas>
+            </div>
+        </div>
+
+
     {% if proficiency_debug %}
       <div style="font-size: 12px; color: #777; margin-top: 6px;">
         <strong>Proficiency (debug):</strong><br>
@@ -302,5 +313,92 @@
         });
     </script>
 
+    {{ chart_labels|json_script:"chart-labels" }}
+    {{ chart_values|json_script:"chart-values" }}
+    <script>
+        window.proficiencyChart = null;
+    
+        function getCurrentChartValues() {
+            const valuesEl = document.getElementById('chart-values');
+            if (!valuesEl) return [];
+            try {
+                return JSON.parse(valuesEl.textContent);
+            } catch (e) {
+                return [];
+            }
+        }
+    </script>
+
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const chartCanvas = document.getElementById('proficiencyRadar');
+        if (!chartCanvas || typeof Chart === 'undefined') return;
+
+        const labels = JSON.parse(document.getElementById('chart-labels').textContent);
+        const newValues = JSON.parse(document.getElementById('chart-values').textContent);
+
+        let startValues = newValues;
+
+        const storedOldValues = sessionStorage.getItem('oldChartValues');
+        const shouldAnimate = sessionStorage.getItem('animateChart') === '1';
+
+        if (shouldAnimate && storedOldValues) {
+            try {
+                const parsed = JSON.parse(storedOldValues);
+                if (Array.isArray(parsed) && parsed.length === newValues.length) {
+                    startValues = parsed;
+                }
+            } catch (e) {}
+        }
+
+        window.proficiencyChart = new Chart(chartCanvas, {
+            type: 'radar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Topic Proficiency',
+                    data: startValues,
+                    fill: true,
+                    borderWidth: 2,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 800
+                },
+                scales: {
+                    r: {
+                        min: 0,
+                        max: 5,
+                        ticks: {
+                            stepSize: 1,
+                            backdropColor: 'transparent'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        if (shouldAnimate) {
+            setTimeout(() => {
+                window.proficiencyChart.data.datasets[0].data = newValues;
+                window.proficiencyChart.update();
+
+                sessionStorage.removeItem('animateChart');
+                sessionStorage.removeItem('oldChartValues');
+            }, 50);
+        }
+    });
+</script>
 </body>
 </html>
