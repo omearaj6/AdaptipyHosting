@@ -1,8 +1,7 @@
 from django.http import JsonResponse
 from django.shortcuts import render
-import subprocess
-import tempfile
-import os, json, re
+import os
+import json
 import requests
 from dotenv import load_dotenv
 from django.utils import timezone
@@ -12,7 +11,6 @@ from ai_demo.models import TopicProgress, TopicProficiency, UserLearningProfile,
 from .proficiencies import ensure_proficiency_rows, apply_decay_if_needed, update_proficiency, choose_next_topic, get_proficiencies
 from django.db import connection
 from ai_demo.models import ALL_TOPICS
-from django.views.decorators.csrf import csrf_exempt
 from ai_demo.utils.ruff_linter import get_ruff_feedback
 from ai_demo.utils.ollama_client import ollama_generate
 
@@ -281,7 +279,7 @@ def generate_problem_with_solution(topic: str, profs: dict) -> dict:
         from openai import OpenAI
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-        topic_prof = float(profs.get(topic, 0.0))
+        #topic_prof = float(profs.get(topic, 0.0))
 
         prompt = f"""
         You are a tutor generating a single Python problem for a student. Their proficiency in each topic ranges from 0-5, where each level introduces ONE new concept. Level X should ONLY teach the concept listed for level X - do NOT skip ahead or introduce future concepts.
@@ -659,7 +657,6 @@ def coding_demo(request):
     ensure_proficiency_rows(request.user)
     days_decayed = apply_decay_if_needed(request.user)
     profs = get_proficiencies(request.user)
-    wants_new_problem = (request.method == "POST" and "new_problem" in request.POST)
     print("DECAY APPLIED:", days_decayed)
     print(connection.vendor)
 

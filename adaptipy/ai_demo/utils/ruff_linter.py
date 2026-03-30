@@ -1,5 +1,5 @@
-import subprocess, json
-from typing import Dict, Any
+import subprocess
+import json
 
 
 def run_ruff_analysis(code: str) -> str:
