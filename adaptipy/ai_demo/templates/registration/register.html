@@ -1,13 +1,50 @@
-<!DOCTYPE html>
-<html>
-<head><title>Register</title></head>
-<body>
-  <h1>Create account</h1>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Create account</button>
-  </form>
-  <p><a href="/accounts/login/">Already have an account? Log in</a></p>
-</body>
-</html>
+<!-- register.html - Updated to extend base -->
+{% extends "base.html" %}
+
+{% block title %}Register | AdaptiPy{% endblock %}
+
+{% block container_class %}wrap{% endblock %}
+
+{% block topbar %}
+<div class="topbar">
+    <div>
+        <h2 style="margin:0;">AdaptiPy</h2>
+    </div>
+    <div class="flex gap-3">
+        <a href="/accounts/login/" class="btn">Log in</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 450px; margin: 40px auto;">
+    <h2 style="text-align: center; margin-bottom: 24px;">Create Account</h2>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {% for field in form %}
+        <div style="margin-bottom: 20px;">
+            <label>{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+            <div class="muted" style="font-size: 12px; margin-top: 5px;">{{ field.help_text|safe }}</div>
+            {% endif %}
+            {% if field.errors %}
+            <div class="muted" style="color: #ef4444; font-size: 12px; margin-top: 5px;">
+                {{ field.errors|join:", " }}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+            Create Account
+        </button>
+    </form>
+
+    <div class="muted" style="text-align: center; margin-top: 20px;">
+        Already have an account? <a href="/accounts/login/" style="color: #3b82f6;">Log in</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,57 +1,179 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Adaptipy</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:#0f172a; color:#eaf0ff; }
-    .wrap { width:min(920px, 92vw); margin:0 auto; padding:48px 0; }
-    .hero { background:#111c33; border:1px solid #223055; border-radius:18px; padding:28px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
-    h1 { margin:0 0 10px; font-size:34px; }
-    p { margin:0; line-height:1.6; color:#cfe0ff; }
-    .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:18px; }
-    a.btn { text-decoration:none; padding:10px 14px; border-radius:12px; border:1px solid #2c3c66; color:#eaf0ff; }
-    a.primary { background:#3b82f6; border-color:#3b82f6; color:white; }
-    .section { margin-top:22px; background:#0b1224; border:1px solid #1c2a4f; border-radius:18px; padding:22px; }
-    h2 { margin:0 0 10px; font-size:20px; }
-    ul { margin:0; padding-left:18px; color:#cfe0ff; line-height:1.65; }
-    code { background:#0b1224; padding:2px 6px; border-radius:8px; border:1px solid #1c2a4f; }
-    .muted { color:#a9bde9; font-size:14px; margin-top:10px; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="hero">
-      <h1>Adaptive AI Python Tutor</h1>
-      
-      <p>
+<!-- home.html - Extended from base with tech-y enhancements -->
+{% extends "base.html" %}
+
+{% block title %}Home | AdaptiPy{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero-card {
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Animated gradient border effect */
+    .hero-card::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg,
+            #3b82f6,
+            #8b5cf6,
+            #06b6d4,
+            #3b82f6);
+        border-radius: 20px;
+        opacity: 0;
+        z-index: -1;
+        transition: opacity 0.3s ease;
+    }
+
+    .hero-card:hover::before {
+        opacity: 0.5;
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+    }
+
+    .stat-card {
+        background: rgba(17, 28, 51, 0.6);
+        border: 1px solid #223055;
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(59, 130, 246, 0.2);
+    }
+
+    .stat-number {
+        font-size: 36px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .feature-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .feature-list li {
+        padding: 10px 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-bottom: 1px solid #223055;
+    }
+
+    .feature-list li:last-child {
+        border-bottom: none;
+    }
+
+    .feature-icon {
+        font-size: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero-card card" style="margin-bottom: 30px;">
+    <h1 style="background: linear-gradient(135deg, #eaf0ff, #3b82f6); -webkit-background-clip: text; background-clip: text; color: transparent;">
+        Adaptive AI Python Tutor
+    </h1>
+
+    <p style="font-size: 18px; margin-top: 12px; max-width: 600px; margin-left: auto; margin-right: auto;">
         Practice Python with adaptive problem selection, deterministic evaluation, and targeted feedback.
-      </p>
+    </p>
 
-      <div class="actions">
-        {% if user.is_authenticated %}
-          <div class="muted">Logged in as <strong>{{ user.username }}</strong></div>
-          <a class="btn primary" href="/ai/">Continue practicing</a>
-          <a class="btn" href="/ai/notebook/">Open notebook</a>
-          <a class="btn" href="/accounts/password_change/">Account</a>
-          <a class="btn" href="/accounts/logout/">Log out</a>
-        {% else %}
-          <a class="btn primary" href="/accounts/login/?next=/ai/">Log in to start</a>
-        {% endif %}
-      </div>
-
-      {% if not user.is_authenticated %}
-        <div class="muted">
-          You’ll be prompted to log in before accessing practice or your notebook.
-        </div>
-      {% endif %}
+    {% if user.is_authenticated %}
+    <div class="flex gap-3" style="justify-content: center; margin-top: 28px;">
+        <a href="/ai/" class="btn btn-primary">
+            <span>▶</span> Continue practicing
+        </a>
+        <a href="/ai/notebook/" class="btn">
+            <span>📓</span> Open notebook
+        </a>
+        <a href="/accounts/password_change/" class="btn">
+            <span>⚙️</span> Change password
+        </a>
     </div>
-  </div>
+    {% else %}
+    <div class="flex gap-3" style="justify-content: center; margin-top: 28px;">
+        <a href="/accounts/login/?next=/ai/" class="btn btn-primary">
+            <span>🚀</span> Log in to start
+        </a>
+    </div>
+    <div class="muted" style="margin-top: 20px;">
+        You'll be prompted to log in before accessing practice or your notebook.
+    </div>
+    {% endif %}
+</div>
 
-  <div id="notebook">
-  </div>
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-number">AI-Powered</div>
+        <div class="muted" style="margin-top: 8px;">Dynamic problem generation</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">Adaptive</div>
+        <div class="muted" style="margin-top: 8px;">Personalized difficulty</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">Real-time</div>
+        <div class="muted" style="margin-top: 8px;">Instant feedback & hints</div>
+    </div>
+</div>
 
+<div class="card" style="margin-top: 30px;">
+    <h3 style="display: flex; align-items: center; gap: 8px;">
+        <span>✨</span> Features
+    </h3>
+    <ul class="feature-list">
+        <li>
+            <span class="feature-icon">🤖</span>
+            <span>AI-generated coding problems tailored to your skill level</span>
+        </li>
+        <li>
+            <span class="feature-icon">📊</span>
+            <span>Skill radar to track your progress across Python topics</span>
+        </li>
+        <li>
+            <span class="feature-icon">📓</span>
+            <span>Personal notebook for code snippets and notes</span>
+        </li>
+        <li>
+            <span class="feature-icon">💡</span>
+            <span>Smart hints and explanations when you get stuck</span>
+        </li>
+        <li>
+            <span class="feature-icon">🔍</span>
+            <span>Ruff code analysis for style and best practices</span>
+        </li>
+    </ul>
+</div>
 
-</body>
-</html>
+{% if user.is_authenticated %}
+<div class="card" style="margin-top: 20px; background: linear-gradient(135deg, #111c33, #0f172a);">
+    <div class="flex-between" style="flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h3 style="margin: 0;">Welcome back, {{ user.username }}!</h3>
+            <div class="muted">Ready to level up your Python skills?</div>
+        </div>
+        <a href="/ai/" class="btn btn-primary">Start practicing →</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

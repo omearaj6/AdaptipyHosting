@@ -1,337 +1,488 @@
-<!DOCTYPE html>
-<html>
-    <head>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .btn { color: white; padding: 10px 20px; text-decoration: none; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-        .new-problem-btn { background: #28a745; }
-        .run-code-btn { background: #007bff; }
-        textarea { width: 100%; margin: 10px 0; font-family: monospace; }
-        .result { margin-top: 20px; padding: 15px; white-space: pre-wrap; border-radius: 5px; }
-        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .feedback { background: #e7f3ff; color: #004085; border: 1px solid #b8daff; margin-top: 15px; }
-        .button-group { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
-        .hint-icon { font-weight: bold; margin-right: 5px; }
-        #due-editor {height: 300px; border: 1px solid #ccc;}
-        .lesson, .explanation {background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin: 12px 0; max-width: 100%; box-sizing: border-box;}
-        .lesson pre, .explanation pre {margin: 0; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
-        .btn:disabled {background: #999; cursor: not-allowed;opacity: 0.7;}
-        .run {background: #e7f3ff; color: #2a88e5; border: 1px solid #b8daff;}
-    </style>
-    
-    <title>Python Coding Demo</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
-    
-</head>
-<body>
-    <div class="header" style="justify-content: space-between;">    
-        <div style="display: flex; align-items: center; gap: 12px;">
-            {% if user.is_authenticated %}
-                <span style="font-size: 14px;">
-                    Logged in as <strong>{{ user.username }}</strong>
-                </span>
-    
-                <form method="POST" action="/accounts/logout/">
-                    {% csrf_token %}
-                    <button type="submit"
-                            class="btn"
-                            style="background:#dc3545;">
-                        Log out
-                    </button>
-                </form>
-            {% else %}
-                <a href="/accounts/login/" class="btn run-code-btn">
-                    Log in
-                </a>
-            {% endif %}
-        </div>
-    </div>
-    <a href="/" class="btn run-code-btn" style="padding: 5px 10px; font-size: 13px;">Home</a>
-    {% if days_decayed %}
-        <div style="font-size: 12px; color: #777; margin-bottom: 6px;">
-            Proficiency decay applied: {{ days_decayed }} day{{ days_decayed|pluralize }}
-        </div>
-    {% endif %}
+<!-- coding_demo.html - Complete file with DB-backed theme toggle -->
+{% extends "base.html" %}
 
-    <div id="notebook-section" style="position: fixed; top: 20px; right: 20px; width: 300px; z-index: 1000;">
-        <div style="background: white; border: 2px solid #007bff; border-radius: 5px; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h4 style="margin: 0; color: #007bff;">📓 My Notebook</h4>
-                <span id="notebook-save-status" style="font-size: 12px; color: #666;">Auto-save on blur</span>
-            </div>
+{% block title %}Python Coding Practice | AdaptiPy{% endblock %}
 
-            <textarea
-                    id="notebook-textarea"
-                    rows="12"
-                    style="width: 100%; font-family: monospace; font-size: 13px; padding: 8px; border: 1px solid #ddd; border-radius: 3px; resize: vertical;"
-                    placeholder="Write your Python notes here..."
-            >{{ notebook_content|default:"" }}</textarea>
+{% block container_class %}wrap-wide{% endblock %}
 
-        </div>
-    </div>
+{% block extra_css %}
+<style>
+    /* Restore original layout with notebook sidebar */
+    .coding-layout {
+        display: flex;
+        gap: 24px;
+        position: relative;
+    }
 
-    <div class="header">
-        <h1>Python Coding Practice</h1>
-        <form method="POST" style="display: inline;">
+    .main-content {
+        flex: 1;
+        min-width: 0; /* Prevents overflow */
+        max-width: calc(100% - 340px); /* Leave space for notebook */
+    }
+
+    .notebook-sidebar {
+        width: 320px;
+        flex-shrink: 0;
+        position: sticky;
+        top: 20px;
+        align-self: flex-start;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+    }
+
+    /* Preserve all original coding demo styles */
+    .new-problem-btn { background: #28a745 !important; }
+    .run-code-btn { background: #007bff !important; }
+    .result { margin-top: 20px; padding: 15px; white-space: pre-wrap; border-radius: 5px; }
+    .success { background: #d4edda !important; color: #155724 !important; border: 1px solid #c3e6cb !important; }
+    .error { background: #f8d7da !important; color: #721c24 !important; border: 1px solid #f5c6cb !important; }
+    .feedback { background: #e7f3ff !important; color: #004085 !important; border: 1px solid #b8daff !important; margin-top: 15px; }
+    .run { background: #e7f3ff !important; color: #2a88e5 !important; border: 1px solid #b8daff !important; }
+
+    /* Fixed: Lesson and explanation boxes - now expand naturally without scrollbars */
+    .lesson, .explanation {
+        background: #1a2335 !important;
+        border: 1px solid #2c3c66 !important;
+        border-radius: 6px;
+        padding: 12px;
+        margin: 12px 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: visible !important; /* No scrollbars */
+    }
+
+    .lesson pre, .explanation pre {
+        margin: 0;
+        max-width: 100%;
+        white-space: pre-wrap !important; /* Wrap text instead of scrolling */
+        overflow-wrap: break-word !important; /* Break long words */
+        word-break: break-word !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        color: #eaf0ff !important;
+        font-family: inherit !important;
+        line-height: 1.6 !important;
+    }
+
+    /* Override any white backgrounds from original */
+    .problem-section div, .expected-output-section pre {
+        background: #0b1224 !important;
+        color: #eaf0ff !important;
+    }
+
+    .expected-output-section pre {
+        background: #0b1224 !important;
+        color: #6ee7b7 !important;
+        border: 1px solid #223055;
+        white-space: pre-wrap !important;
+        overflow-wrap: break-word !important;
+    }
+
+    /* Notebook widget styling */
+    .notebook-sidebar > div {
+        background: #111c33 !important;
+        border: 1px solid #3b82f6 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.2) !important;
+    }
+
+    .notebook-sidebar h4 {
+        color: #3b82f6 !important;
+        margin: 0 0 10px 0;
+    }
+
+    #notebook-textarea {
+        background: #0b1224 !important;
+        border-color: #223055 !important;
+        color: #eaf0ff !important;
+        width: 100%;
+        font-family: monospace;
+        font-size: 13px;
+        padding: 8px;
+        border-radius: 8px;
+        resize: vertical;
+    }
+
+    /* Proficiency chart container */
+    .chart-container {
+        background: #111c33;
+        border: 1px solid #223055;
+        border-radius: 16px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+
+    /* Reset button styling */
+    .reset-btn {
+        background: #dc3545 !important;
+    }
+
+    /* Make sure Monaco editor fits */
+    #editor {
+        height: 350px;
+        border: 1px solid #223055;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    /* Theme toggle button styling */
+    .theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #0b1224;
+        border: 1px solid #3b82f6;
+        border-radius: 24px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s ease;
+        margin-left: 12px;
+    }
+
+    .theme-toggle:hover {
+        background: #3b82f6;
+        border-color: #3b82f6;
+    }
+
+    .editor-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .editor-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #a9bde9;
+    }
+
+    /* Responsive: stack on mobile */
+    @media (max-width: 900px) {
+        .coding-layout {
+            flex-direction: column;
+        }
+        .main-content {
+            max-width: 100%;
+        }
+        .notebook-sidebar {
+            width: 100%;
+            position: static;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block topbar %}
+<div class="flex-between" style="margin-bottom: 20px;">
+    <div class="flex gap-3">
+        <span class="muted">Logged in as <strong>{{ user.username }}</strong></span>
+        <form method="POST" action="/accounts/logout/" style="display: inline;">
             {% csrf_token %}
-            <button type="submit" name="new_problem" class="btn new-problem-btn">
-                New Problem
-            </button>
+            <button type="submit" class="btn btn-danger" style="padding: 5px 12px;">Log out</button>
         </form>
     </div>
-    
-    <div style="font-size: 13px; color: #666; margin-bottom: 6px;">
-        <strong>Topic:</strong> {{ selected_topic|title }}
-      </div>
+    <a href="/" class="btn" style="padding: 5px 12px;">Home</a>
+</div>
+{% endblock %}
 
-    <!-- Problem Section -->
-    <div class="problem-section">
-        <p><strong>AI-Generated Problem:</strong></p>
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
-            {{ ai_problem }}
+{% block content %}
+<!-- Two-column layout -->
+<div class="coding-layout">
+    <!-- Main content area -->
+    <div class="main-content">
+        {% if days_decayed %}
+        <div class="muted" style="margin-bottom: 6px;">
+            Proficiency decay applied: {{ days_decayed }} day{{ days_decayed|pluralize }}
+        </div>
+        {% endif %}
+
+        <div class="flex-between" style="margin-bottom: 20px;">
+            <h1>Python Coding Practice</h1>
+            <form method="POST" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" name="new_problem" class="btn new-problem-btn" style="background: #28a745; color: white; border: none;">
+                    New Problem
+                </button>
+            </form>
+        </div>
+
+        <div class="muted" style="margin-bottom: 12px;">
+            <strong>Topic:</strong> {{ selected_topic|title }}
+        </div>
+
+        <!-- Problem Section -->
+        <div class="card" style="margin-bottom: 16px;">
+            <strong>🤖 AI-Generated Problem:</strong>
+            <div style="margin-top: 12px;">
+                {{ ai_problem }}
+            </div>
+        </div>
+
+        <form method="post" style="display:inline; margin-bottom: 16px; display: inline-block;">
+            {% csrf_token %}
+            <button type="submit" name="i_dont_understand" value="1" class="btn" style="background: #6c757d; color: white;">
+                I don't understand
+            </button>
+        </form>
+
+        <!-- Expected Output Section -->
+        <div class="card" style="margin-top: 16px;">
+            <strong>📤 Expected Output:</strong>
+            <pre style="background: #0b1224; color: #6ee7b7; margin-top: 12px; white-space: pre-wrap; overflow-wrap: break-word;">{{ expected_output }}</pre>
+        </div>
+
+        {% if lesson %}
+        <div class="lesson">
+            <strong>📘 Intro lesson:</strong>
+            <pre>{{ lesson }}</pre>
+        </div>
+        {% endif %}
+
+        {% if show_explanation and explanation %}
+        <div class="explanation">
+            <strong>💡 Explanation:</strong>
+            <pre>{{ explanation }}</pre>
+        </div>
+        {% endif %}
+
+        <!-- Code Input Section with Theme Toggle -->
+        <div style="margin-top: 20px;">
+            <div class="editor-header">
+                <span class="editor-label">💻 Your Code</span>
+                <button type="button" id="themeToggleBtn" class="theme-toggle">
+                    <span>🎨</span> Toggle Dark/Light
+                </button>
+            </div>
+
+            <form method="POST" onsubmit="syncEditor()">
+                {% csrf_token %}
+                <input type="hidden" name="code" id="code-input">
+
+                <div id="editor"></div>
+
+                <div class="flex gap-3" style="margin-top: 16px;">
+                    <button type="submit" name="run_code" class="btn run-code-btn" style="background: #007bff; color: white; border: none;">▶ Run Code</button>
+                    <button type="submit" name="submit_code" class="btn new-problem-btn" {% if current_problem_awarded %}disabled{% endif %} style="background: #28a745; color: white; border: none;">✓ Submit</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Section -->
+        {% if result %}
+        <div class="result {% if result_type == 'success' %}success {% elif result_type == 'error' %}error {% elif result_type == 'run' %}run{% endif %}">
+            <strong>Result:</strong> {{ result }}
+        </div>
+        {% endif %}
+
+        <!-- AI Feedback Section -->
+        {% if evaluation_feedback %}
+        <div class="result feedback">
+            <strong>💡 Hint:</strong> {{ evaluation_feedback }}
+        </div>
+        {% endif %}
+
+        <!-- Ruff Feedback Section -->
+        {% if ruff_feedback %}
+        <div class="result feedback" style="background: #fff3cd !important; color: #856404 !important; border: 1px solid #ffeaa7 !important;">
+            <strong>🔍 Ruff Code Analysis:</strong>
+            <pre style="white-space: pre-wrap; margin: 10px 0; font-size: 13px;">{{ ruff_feedback }}</pre>
+        </div>
+        {% endif %}
+
+        <hr style="border-color: #223055; margin: 30px 0;">
+
+        <!-- Reset Progress Button -->
+        <form method="POST" style="text-align: center;">
+            {% csrf_token %}
+            <button type="submit" name="reset_progress" class="btn reset-btn" style="background: #dc3545; color: white; border: none; padding: 12px 24px;">
+                Reset Learning Progress
+            </button>
+        </form>
+
+        <!-- Skill Map Chart -->
+        <div class="chart-container">
+            <h3 style="margin-top: 0;">📊 Skill Map</h3>
+            <div style="max-width: 500px; margin: 0 auto; height: 450px;">
+                <canvas id="proficiencyRadar"></canvas>
+            </div>
+        </div>
+
+        {% if proficiency_debug %}
+        <div class="muted" style="margin-top: 16px; font-size: 12px;">
+            <strong>Proficiency (debug):</strong><br>
+            {% for p in proficiency_debug %}
+            {{ p.topic }} → {{ p.proficiency }}<br>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Notebook Sidebar -->
+    <div class="notebook-sidebar">
+        <div style="padding: 15px;">
+            <div class="flex-between" style="margin-bottom: 10px;">
+                <h4 style="margin: 0;">📓 My Notebook</h4>
+                <span id="notebook-save-status" class="muted" style="font-size: 11px;">Auto-save</span>
+            </div>
+            <textarea
+                    id="notebook-textarea"
+                    rows="20"
+                    placeholder="Write your Python notes here...">{{ notebook_content|default:"" }}</textarea>
         </div>
     </div>
+</div>
 
-    <form method="post" style="display:inline;">
-        {% csrf_token %}
-        <button type="submit" name="i_dont_understand" value="1">
-            I don’t understand
-        </button>
-    </form>
+<!-- Monaco Editor Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 
-      <!-- Expected Output Section -->
-    <div class="expected-output-section">
-        <p><strong>Expected Output:</strong></p>
-        <pre style="
-            background: #666;
-            color: #d4edda;
-            padding: 12px;
-            border-radius: 5px;
-            overflow-x: auto;
-            white-space: pre-wrap;
-        ">{{ expected_output }}</pre>
-    </div>
-
-    {% if lesson %}
-    <div class="lesson">
-      <strong>Intro lesson:</strong>
-      <pre>{{ lesson }}</pre>
-    </div>
-  {% endif %}
-  
-  {% if show_explanation and explanation %}
-    <div class="explanation">
-      <strong>Explanation:</strong>
-      <pre>{{ explanation }}</pre>
-    </div>
-  {% endif %}
-
-    <!-- Code Input Section -->
-    <form method="POST" onsubmit="syncEditor()">
-        {% csrf_token %}
-        <input type="hidden" name="code" id="code-input">
-
-        <div id="editor" style="height: 300px; border: 1px solid #ccc;"></div>
-        
-        <div class="button-group">
-            <button type="submit" name="run_code" class="btn run-code-btn">Run Code</button>
-            <button type="submit" name="submit_code" class="btn new-problem-btn" {% if current_problem_awarded %}disabled {% endif %}>Submit</button>
-        </div>
-    </form>
-
-    
-    
-    <!-- Results Section -->
-    {% if result %}
-    <div class="result {% if result_type == 'success' %}success {% elif result_type == 'error' %}error {% elif result_type == 'run' %}run{% endif %}">
-        <strong>Result:</strong> {{ result }}
-    </div>
-    {% endif %}
-    
-    <!-- AI Feedback Section -->
-    {% if evaluation_feedback %}
-    <div class="result feedback">
-        <strong>Hint:</strong> {{ evaluation_feedback }}
-    </div>
-    {% endif %}
-
-    <!-- Ruff Feedback Section -->
-    {% if ruff_feedback %}
-    <div class="result feedback" style="background: #fff3cd; color: #856404; border: 1px solid #ffeaa7;">
-        <strong>Ruff Code Analysis:</strong>
-        <pre style="white-space: pre-wrap; margin: 10px 0; font-size: 13px;">{{ ruff_feedback }}</pre>
-    </div>
-    {% endif %}
-
-    <hr>
-
-
-<form method="POST" style="text-align: center; margin-top: 30px;">
-    {% csrf_token %}
-    <button type="submit"
-            name="reset_progress"
-            style="
-                background-color: #dc3545;
-                color: white;
-                padding: 12px 24px;
-                border: none;
-                border-radius: 6px;
-                font-size: 16px;
-                cursor: pointer;
-            ">
-        Reset Learning Progress
-    </button>
-</form>
 <script>
+    // Get user's saved theme from Django context
+    let currentTheme = '{{ user_theme|default:"vs-dark" }}';
+
     function syncEditor() {
         if (window.editor) {
             document.getElementById('code-input').value = window.editor.getValue();
         }
     }
-    
-    function syncDueEditor() {
-        if (window.dueEditor) {
-            document.getElementById('due-code-input').value = window.dueEditor.getValue();
-        }
+
+    // Save theme preference to database
+    function saveThemeToDB(theme) {
+        fetch('/ai/save_theme/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({
+                'theme': theme
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Theme saved:', theme);
+            }
+        })
+        .catch(error => console.error('Theme save error:', error));
     }
-    
+
+    // Toggle theme function
+    function toggleEditorTheme() {
+        if (!window.editor) return;
+
+        if (currentTheme === 'vs-dark') {
+            window.editor.updateOptions({ theme: 'vs' });
+            currentTheme = 'vs';
+            document.getElementById('themeToggleBtn').innerHTML = '<span>🌙</span> Toggle Dark/Light';
+        } else {
+            window.editor.updateOptions({ theme: 'vs-dark' });
+            currentTheme = 'vs-dark';
+            document.getElementById('themeToggleBtn').innerHTML = '<span>☀️</span> Toggle Dark/Light';
+        }
+
+        // Save preference to database
+        saveThemeToDB(currentTheme);
+    }
+
     require.config({
         paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }
     });
-    
+
     require(['vs/editor/editor.main'], function () {
         var initialCode = "{{ user_code|default_if_none:''|escapejs }}";
+
         window.editor = monaco.editor.create(document.getElementById('editor'), {
             value: initialCode,
             language: 'python',
             automaticLayout: true,
             tabSize: 4,
-            insertSpaces: true
+            insertSpaces: true,
+            theme: currentTheme  // Use the DB-stored theme
         });
-    
-        var dueContainer = document.getElementById('due-editor');
-        if (dueContainer) {
-            var dueInitialCode = "{{ due_user_code|default_if_none:''|escapejs }}";
-            window.dueEditor = monaco.editor.create(dueContainer, {
-                value: dueInitialCode,
-                language: 'python',
-                automaticLayout: true,
-                tabSize: 4,
-                insertSpaces: true
-            });
+
+        // Update toggle button text based on starting theme
+        const toggleBtn = document.getElementById('themeToggleBtn');
+        if (toggleBtn) {
+            if (currentTheme === 'vs-dark') {
+                toggleBtn.innerHTML = '<span>☀️</span> Toggle Dark/Light';
+            } else {
+                toggleBtn.innerHTML = '<span>🌙</span> Toggle Dark/Light';
+            }
         }
     });
-    </script>
 
+    // Notebook auto-save functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const notebookTextarea = document.getElementById('notebook-textarea');
+        const saveStatus = document.getElementById('notebook-save-status');
 
-        <div style="margin-top: 30px; background: #f8f9fa; padding: 16px; border-radius: 8px;">
-            <h3 style="margin-top: 0;">Skill Map</h3>
-            <div style="max-width: 500px; margin: 0 auto; height: 500px;">
-                <canvas id="proficiencyRadar"></canvas>
-            </div>
-        </div>
-
-
-    {% if proficiency_debug %}
-      <div style="font-size: 12px; color: #777; margin-top: 6px;">
-        <strong>Proficiency (debug):</strong><br>
-        {% for p in proficiency_debug %}
-            {{ p.topic }} → {{ p.proficiency }}<br>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <script>
-        // Simple notebook functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const notebookTextarea = document.getElementById('notebook-textarea');
-            const saveStatus = document.getElementById('notebook-save-status');
-            let saveTimeout = null;
-
-            // Save notebook function
-            function saveNotebook() {
-                    const content = notebookTextarea.value;
-
-                    // Show saving status
-                    saveStatus.textContent = 'Saving...';
-                    saveStatus.style.color = '#007bff';
-
-                // Send to server
-                const formData = new FormData();
-                formData.append('content', content);
-                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-
-                fetch('/ai/save_notebook/', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        saveStatus.textContent = 'Saved ✓';
-                        saveStatus.style.color = '#28a745';
-
-                        // Reset status after 2 seconds
-                        setTimeout(() => {
-                            saveStatus.textContent = 'Auto-save on blur';
-                            saveStatus.style.color = '#666';
-                        }, 2000);
-                    } else {
-                        saveStatus.textContent = 'Save failed!';
-                        saveStatus.style.color = '#dc3545';
-                    }
-                })
-                .catch(error => {
-                    console.error('Save error:', error);
-                    saveStatus.textContent = 'Network error!';
-                    saveStatus.style.color = '#dc3545';
-                });
-            }
-
-            // Save on blur (when user clicks away from textarea)
-            notebookTextarea.addEventListener('blur', saveNotebook);
-
-            // Also save on Ctrl+S or Cmd+S
-            notebookTextarea.addEventListener('keydown', function(e) {
-                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                    e.preventDefault();
-                    saveNotebook();
-                }
-            });
-
-            // Optional: Auto-save every 30 seconds if content changed
-            let lastContent = notebookTextarea.value;
-            setInterval(() => {
-                if (notebookTextarea.value !== lastContent) {
-                    lastContent = notebookTextarea.value;
-                    saveNotebook();
-                }
-            }, 30000);
-        });
-    </script>
-
-    {{ chart_labels|json_script:"chart-labels" }}
-    {{ chart_values|json_script:"chart-values" }}
-    <script>
-        window.proficiencyChart = null;
-    
-        function getCurrentChartValues() {
-            const valuesEl = document.getElementById('chart-values');
-            if (!valuesEl) return [];
-            try {
-                return JSON.parse(valuesEl.textContent);
-            } catch (e) {
-                return [];
-            }
+        // Theme toggle button event
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', toggleEditorTheme);
         }
-    </script>
 
+        function saveNotebook() {
+            const content = notebookTextarea.value;
+            saveStatus.textContent = 'Saving...';
+            saveStatus.style.color = '#3b82f6';
 
+            const formData = new FormData();
+            formData.append('content', content);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-    <script>
+            fetch('/ai/save_notebook/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    saveStatus.textContent = 'Saved ✓';
+                    saveStatus.style.color = '#10b981';
+                    setTimeout(() => {
+                        saveStatus.textContent = 'Auto-save';
+                        saveStatus.style.color = '#a9bde9';
+                    }, 2000);
+                } else {
+                    saveStatus.textContent = 'Save failed!';
+                    saveStatus.style.color = '#ef4444';
+                }
+            })
+            .catch(error => {
+                console.error('Save error:', error);
+                saveStatus.textContent = 'Network error!';
+                saveStatus.style.color = '#ef4444';
+            });
+        }
+
+        notebookTextarea.addEventListener('blur', saveNotebook);
+        notebookTextarea.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveNotebook();
+            }
+        });
+
+        // Optional: Auto-save every 30 seconds if content changed
+        let lastContent = notebookTextarea.value;
+        setInterval(() => {
+            if (notebookTextarea.value !== lastContent) {
+                lastContent = notebookTextarea.value;
+                saveNotebook();
+            }
+        }, 30000);
+    });
+</script>
+
+{{ chart_labels|json_script:"chart-labels" }}
+{{ chart_values|json_script:"chart-values" }}
+
+<script>
     document.addEventListener('DOMContentLoaded', function () {
         const chartCanvas = document.getElementById('proficiencyRadar');
         if (!chartCanvas || typeof Chart === 'undefined') return;
@@ -339,66 +490,40 @@
         const labels = JSON.parse(document.getElementById('chart-labels').textContent);
         const newValues = JSON.parse(document.getElementById('chart-values').textContent);
 
-        let startValues = newValues;
-
-        const storedOldValues = sessionStorage.getItem('oldChartValues');
-        const shouldAnimate = sessionStorage.getItem('animateChart') === '1';
-
-        if (shouldAnimate && storedOldValues) {
-            try {
-                const parsed = JSON.parse(storedOldValues);
-                if (Array.isArray(parsed) && parsed.length === newValues.length) {
-                    startValues = parsed;
-                }
-            } catch (e) {}
-        }
-
         window.proficiencyChart = new Chart(chartCanvas, {
             type: 'radar',
             data: {
                 labels: labels,
                 datasets: [{
                     label: 'Topic Proficiency',
-                    data: startValues,
+                    data: newValues,
                     fill: true,
                     borderWidth: 2,
-                    pointRadius: 4
+                    pointRadius: 4,
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: '#3b82f6',
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#fff'
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: {
-                    duration: 800
-                },
                 scales: {
                     r: {
                         min: 0,
                         max: 5,
-                        ticks: {
-                            stepSize: 1,
-                            backdropColor: 'transparent'
-                        }
+                        ticks: { stepSize: 1, backdropColor: 'transparent', color: '#a9bde9' },
+                        grid: { color: '#223055' },
+                        angleLines: { color: '#223055' },
+                        pointLabels: { color: '#eaf0ff' }
                     }
                 },
                 plugins: {
-                    legend: {
-                        display: false
-                    }
+                    legend: { display: false }
                 }
             }
         });
-
-        if (shouldAnimate) {
-            setTimeout(() => {
-                window.proficiencyChart.data.datasets[0].data = newValues;
-                window.proficiencyChart.update();
-
-                sessionStorage.removeItem('animateChart');
-                sessionStorage.removeItem('oldChartValues');
-            }, 50);
-        }
     });
 </script>
-</body>
-</html>
+{% endblock %}

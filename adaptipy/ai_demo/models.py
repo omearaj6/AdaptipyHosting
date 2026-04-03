@@ -62,6 +62,7 @@ class UserLearningProfile(models.Model):
     )
     last_decay_applied_at = models.DateTimeField(default=timezone.now)
     last_topic = models.CharField(max_length=64, blank=True, default="")
+    editor_theme = models.CharField(max_length=10, default='vs-dark', choices=[('vs-dark', 'Dark'), ('vs', 'Light')])
 
     def __str__(self):
         return f"LearningProfile(user_id={self.user_id})"

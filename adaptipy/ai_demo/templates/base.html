@@ -1,0 +1,347 @@
+<!-- base.html - put this in your templates directory -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}AdaptiPy{% endblock %}</title>
+
+    <style>
+        /* ===== GLOBAL STYLES ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f172a;
+            color: #eaf0ff;
+            min-height: 100vh;
+        }
+
+        /* ===== ELECTRIC BLUE ACCENTS ===== */
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #111c33;
+            --border-glow: #3b82f6;
+            --border-subtle: #223055;
+            --accent-blue: #3b82f6;
+            --accent-blue-glow: rgba(59, 130, 246, 0.3);
+            --text-primary: #eaf0ff;
+            --text-muted: #a9bde9;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        /* ===== LAYOUT ===== */
+        .wrap {
+            width: min(1100px, 95vw);
+            margin: 0 auto;
+            padding: 30px 0 50px;
+        }
+
+        .wrap-wide {
+            width: min(1400px, 95vw);
+            margin: 0 auto;
+            padding: 30px 0 50px;
+        }
+
+        /* ===== CARDS & CONTAINERS ===== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: var(--border-glow);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.15);
+        }
+
+        /* Glowing border variant for special containers */
+        .card-glow {
+            border-color: var(--border-glow);
+            box-shadow: 0 0 15px var(--accent-blue-glow);
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .btn:hover {
+            border-color: var(--border-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            border-color: #2563eb;
+            box-shadow: 0 0 12px var(--accent-blue-glow);
+        }
+
+        .btn-danger {
+            background: var(--error);
+            border-color: var(--error);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        /* ===== FORM ELEMENTS ===== */
+        input, textarea, select {
+            background: #0b1224;
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--border-glow);
+            box-shadow: 0 0 8px var(--accent-blue-glow);
+        }
+
+        label {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        /* =Typography = */
+        h1, h2, h3 {
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        h1 { font-size: 34px; margin-bottom: 12px; }
+        h2 { font-size: 24px; margin-bottom: 16px; }
+        h3 { font-size: 20px; margin-bottom: 12px; }
+
+        .muted {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* ===== TOPBAR ===== */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        /* ===== CODE BLOCKS ===== */
+        pre, code {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+            font-size: 13px;
+        }
+
+        pre {
+            background: #0b1224;
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        /* ===== UTILITIES ===== */
+        .flex { display: flex; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .gap-2 { gap: 8px; }
+        .gap-3 { gap: 12px; }
+        .gap-4 { gap: 16px; }
+        .mt-2 { margin-top: 8px; }
+        .mt-3 { margin-top: 12px; }
+        .mt-4 { margin-top: 16px; }
+        .mb-2 { margin-bottom: 8px; }
+        .mb-3 { margin-bottom: 12px; }
+        .mb-4 { margin-bottom: 16px; }
+
+        /* ===== MESSAGES / ALERTS ===== */
+        .message {
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .message-error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--error);
+            color: #fca5a5;
+        }
+
+        .message-success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid var(--success);
+            color: #6ee7b7;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .wrap, .wrap-wide { padding: 20px 0 30px; }
+            .card { padding: 16px; }
+            .btn { padding: 8px 14px; }
+            h1 { font-size: 28px; }
+        }
+
+        /* ===== ANIMATIONS & GLOW EFFECTS ===== */
+        @keyframes glow-pulse {
+            0%, 100% {
+                box-shadow: 0 0 5px rgba(59, 130, 246, 0.2);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+            }
+        }
+
+        .btn-primary:focus {
+            animation: glow-pulse 1s ease;
+        }
+
+        /* Animated border for cards on hover */
+        .card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Subtle scanning line effect on cards */
+        .card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.05), transparent);
+            transition: left 0.5s ease;
+            pointer-events: none;
+        }
+
+        .card:hover::after {
+            left: 100%;
+        }
+
+        /* Tech-y input focus effect */
+        input:focus, textarea:focus, select:focus {
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 0 15px rgba(59, 130, 246, 0.15);
+        }
+
+        /* Loading spinner for async operations */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Code block syntax highlighting vibe */
+        pre {
+            position: relative;
+        }
+
+        pre::before {
+            content: '▼';
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            color: #3b82f6;
+            font-size: 10px;
+            opacity: 0.5;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="{% block container_class %}wrap{% endblock %}">
+    {% block topbar %}
+    <div class="topbar">
+        <div>
+            <h2 style="margin:0;">AdaptiPy</h2>
+            {% if user.is_authenticated %}
+            <div class="muted">Logged in as <strong>{{ user.username }}</strong></div>
+            {% endif %}
+        </div>
+        <div class="flex gap-3">
+            {% block topbar_actions %}
+            {% if user.is_authenticated %}
+            <a href="/ai/" class="btn btn-primary">Practice</a>
+            <a href="/ai/notebook/" class="btn">Notebook</a>
+            <form method="POST" action="/accounts/logout/" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn" style="background: none; border: 1px solid #2c3c66; color: #eaf0ff; cursor: pointer;">Log out</button>
+            </form>
+            {% else %}
+            <a href="/accounts/login/" class="btn btn-primary">Log in</a>
+            <a href="/ai/register/" class="btn">Register</a>
+            {% endif %}
+            {% endblock %}
+        </div>
+    </div>
+    {% endblock %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

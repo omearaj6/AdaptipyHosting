@@ -9,5 +9,6 @@ urlpatterns = [
     path("register/", register, name="register"),
     path('save_notebook/', views.save_notebook, name='save_notebook'),
     path("test_ollama/", views.test_ollama, name="test_ollama"),
+    path('save_theme/', views.save_theme, name='save_theme'),
     
 ]

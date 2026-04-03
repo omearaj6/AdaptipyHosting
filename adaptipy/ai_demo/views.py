@@ -651,12 +651,29 @@ def save_notebook(request):
 
     return JsonResponse({'success': False, 'error': 'POST only'}, status=400)
 
+@login_required
+def save_theme(request):
+    """Save user's editor theme preference"""
+    if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        theme = request.POST.get('theme', '')
+        if theme in ['vs-dark', 'vs']:
+            profile, created = UserLearningProfile.objects.get_or_create(user=request.user)
+            profile.editor_theme = theme
+            profile.save()
+            return JsonResponse({'success': True, 'theme': theme})
+    return JsonResponse({'success': False}, status=400)
+
 
 @login_required
 def coding_demo(request):
     ensure_proficiency_rows(request.user)
     days_decayed = apply_decay_if_needed(request.user)
     profs = get_proficiencies(request.user)
+
+    user_theme = 'vs-dark'  # default
+    if hasattr(request.user, 'learning_profile'):
+        user_theme = request.user.learning_profile.editor_theme
+
     print("DECAY APPLIED:", days_decayed)
     print(connection.vendor)
 
@@ -926,6 +943,7 @@ def coding_demo(request):
         "result_type": result_type,
         "chart_labels": chart_labels,
         "chart_values": chart_values,
+        "user_theme": user_theme,
     })
 
 
