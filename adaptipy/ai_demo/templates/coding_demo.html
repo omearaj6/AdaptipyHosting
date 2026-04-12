@@ -30,7 +30,6 @@
         overflow-y: auto;
     }
 
-    /* Preserve all original coding demo styles */
     .new-problem-btn { background: #28a745 !important; }
     .run-code-btn { background: #007bff !important; }
     .result { margin-top: 20px; padding: 15px; white-space: pre-wrap; border-radius: 5px; }
@@ -38,8 +37,8 @@
     .error { background: #f8d7da !important; color: #721c24 !important; border: 1px solid #f5c6cb !important; }
     .feedback { background: #e7f3ff !important; color: #004085 !important; border: 1px solid #b8daff !important; margin-top: 15px; }
     .run { background: #e7f3ff !important; color: #2a88e5 !important; border: 1px solid #b8daff !important; }
-
-    /* Fixed: Lesson and explanation boxes - now expand naturally without scrollbars */
+    .new-problem-btn:disabled,#submit-btn:disabled { background: #6c757d !important; color: #dcdcdc !important; cursor: not-allowed !important; opacity: 0.65 !important;}
+    
     .lesson, .explanation {
         background: #1a2335 !important;
         border: 1px solid #2c3c66 !important;
@@ -265,7 +264,7 @@
 
                 <div class="flex gap-3" style="margin-top: 16px;">
                     <button type="submit" name="run_code" class="btn run-code-btn" style="background: #007bff; color: white; border: none;">▶ Run Code</button>
-                    <button type="submit" name="submit_code" class="btn new-problem-btn" {% if current_problem_awarded %}disabled{% endif %} style="background: #28a745; color: white; border: none;">✓ Submit</button>
+                    <button type="submit" name="submit_code" class="btn new-problem-btn" {% if current_problem_awarded %}disabled{% endif %}>✓ Submit</button>
                 </div>
             </form>
         </div>
