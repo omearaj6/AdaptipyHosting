@@ -8,3 +8,4 @@ python-dotenv==1.1.1
 openai==2.5.0
 dj-database-url==2.2.0
 ruff==0.4.1
+mistralai==2.3.2
