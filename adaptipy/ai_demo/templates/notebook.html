@@ -1,4 +1,4 @@
-<!-- notebook.html - Extended from base with enhanced styling -->
+<!-- notebook.html - Shows "Home" button instead of "Notebook" -->
 {% extends "base.html" %}
 
 {% block title %}Notebook | AdaptiPy{% endblock %}
@@ -122,6 +122,21 @@
         border: 1px solid #223055;
     }
 </style>
+{% endblock %}
+
+{% block topbar_actions %}
+{% if user.is_authenticated %}
+<a href="/ai/" class="btn btn-primary">Practice</a>
+<a href="/" class="btn">Home</a>
+<a href="/accounts/password_change/" class="btn">Change Password</a>
+<form method="POST" action="/accounts/logout/" style="display: inline;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-logout" style="cursor: pointer;">Log out</button>
+</form>
+{% else %}
+<a href="/accounts/login/" class="btn btn-primary">Log in</a>
+<a href="/ai/register/" class="btn">Register</a>
+{% endif %}
 {% endblock %}
 
 {% block content %}

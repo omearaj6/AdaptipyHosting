@@ -1,9 +1,23 @@
-<!-- coding_demo.html - Complete file with DB-backed theme toggle -->
+<!-- coding_demo.html - Updated with button spacing, green submit, skill map hover, and gradient problem box -->
 {% extends "base.html" %}
 
 {% block title %}Python Coding Practice | AdaptiPy{% endblock %}
 
 {% block container_class %}wrap-wide{% endblock %}
+
+{% block topbar_actions %}
+{% if user.is_authenticated %}
+<a href="/" class="btn btn-primary">Home</a>
+<a href="/accounts/password_change/" class="btn">Change Password</a>
+<form method="POST" action="/accounts/logout/" style="display: inline;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-logout" style="cursor: pointer;">Log out</button>
+</form>
+{% else %}
+<a href="/accounts/login/" class="btn btn-primary">Log in</a>
+<a href="/ai/register/" class="btn">Register</a>
+{% endif %}
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -30,54 +44,136 @@
         overflow-y: auto;
     }
 
-    /* Preserve all original coding demo styles */
-    .new-problem-btn { background: #28a745 !important; }
+    /* Consistent card styling for problem, lesson, and explanation */
+    .problem-card, .lesson-card, .explanation-card, .expected-output-card {
+        background: #111c33;
+        border: 1px solid #223055;
+        border-radius: 18px;
+        padding: 24px;
+        margin-bottom: 20px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* Lesson and explanation have permanent blue border */
+    .lesson-card, .explanation-card {
+        border-color: #3b82f6;
+    }
+
+    /* Problem box - thicker permanent gradient border */
+    .problem-card {
+        border: 3px solid transparent;
+        background: linear-gradient(#111c33, #111c33) padding-box,
+                    linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4, #3b82f6) border-box;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Gleam effect on problem box hover - similar to home page features */
+    .problem-card::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg,
+            #3b82f6,
+            #8b5cf6,
+            #06b6d4,
+            #3b82f6);
+        border-radius: 18px;
+        opacity: 0;
+        z-index: -1;
+        transition: opacity 0.3s ease;
+    }
+
+    .problem-card:hover::before {
+        opacity: 0.2;
+    }
+
+    .problem-card:hover {
+        transform: translateY(0px);
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
+    }
+
+    .problem-card:hover, .lesson-card:hover, .explanation-card:hover, .expected-output-card:hover {
+        border-color: #3b82f6;
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.15);
+    }
+
+    /* Override the hover border for problem card since it has gradient border */
+    .problem-card:hover {
+        border-color: transparent;
+    }
+
+    .problem-card strong, .lesson-card strong, .explanation-card strong, .expected-output-card strong {
+        display: block;
+        margin-bottom: 12px;
+        font-size: 16px;
+    }
+
+    .problem-card div, .lesson-card pre, .explanation-card pre {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #eaf0ff;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: inherit;
+    }
+
+    .lesson-card pre, .explanation-card pre {
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    /* Expected output specific pre styling */
+    .expected-output-card pre {
+        background: #0b1224;
+        color: #6ee7b7;
+        margin: 0;
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid #223055;
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+        font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+        font-size: 13px;
+    }
+
+    /* Remove the arrow from all pre elements */
+    pre::before {
+        display: none !important;
+    }
+
+    /* Preserve other coding demo styles */
+    .new-problem-btn {
+        background: #007bff !important;
+        padding: 10px 18px !important;
+        border-radius: 12px !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+    }
     .run-code-btn { background: #007bff !important; }
+
+    /* Submit button - keep green */
+    .submit-code-btn {
+        background: #28a745 !important;
+        border-color: #28a745 !important;
+        color: white !important;
+    }
+    .submit-code-btn:hover {
+        background: #218838 !important;
+        border-color: #218838 !important;
+    }
+
     .result { margin-top: 20px; padding: 15px; white-space: pre-wrap; border-radius: 5px; }
     .success { background: #d4edda !important; color: #155724 !important; border: 1px solid #c3e6cb !important; }
     .error { background: #f8d7da !important; color: #721c24 !important; border: 1px solid #f5c6cb !important; }
     .feedback { background: #e7f3ff !important; color: #004085 !important; border: 1px solid #b8daff !important; margin-top: 15px; }
     .run { background: #e7f3ff !important; color: #2a88e5 !important; border: 1px solid #b8daff !important; }
-
-    /* Fixed: Lesson and explanation boxes - now expand naturally without scrollbars */
-    .lesson, .explanation {
-        background: #1a2335 !important;
-        border: 1px solid #2c3c66 !important;
-        border-radius: 6px;
-        padding: 12px;
-        margin: 12px 0;
-        max-width: 100%;
-        box-sizing: border-box;
-        overflow: visible !important; /* No scrollbars */
-    }
-
-    .lesson pre, .explanation pre {
-        margin: 0;
-        max-width: 100%;
-        white-space: pre-wrap !important; /* Wrap text instead of scrolling */
-        overflow-wrap: break-word !important; /* Break long words */
-        word-break: break-word !important;
-        background: transparent !important;
-        border: none !important;
-        padding: 0 !important;
-        color: #eaf0ff !important;
-        font-family: inherit !important;
-        line-height: 1.6 !important;
-    }
-
-    /* Override any white backgrounds from original */
-    .problem-section div, .expected-output-section pre {
-        background: #0b1224 !important;
-        color: #eaf0ff !important;
-    }
-
-    .expected-output-section pre {
-        background: #0b1224 !important;
-        color: #6ee7b7 !important;
-        border: 1px solid #223055;
-        white-space: pre-wrap !important;
-        overflow-wrap: break-word !important;
-    }
 
     /* Notebook widget styling */
     .notebook-sidebar > div {
@@ -104,13 +200,39 @@
         resize: vertical;
     }
 
-    /* Proficiency chart container */
+    /* Proficiency chart container with hover effect */
     .chart-container {
         background: #111c33;
         border: 1px solid #223055;
         border-radius: 16px;
         padding: 20px;
         margin-top: 20px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .chart-container::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        border-radius: 18px;
+        opacity: 0;
+        z-index: -1;
+        transition: opacity 0.3s ease;
+    }
+
+    .chart-container:hover::before {
+        opacity: 0.3;
+    }
+
+    .chart-container:hover {
+        border-color: #3b82f6;
+        transform: translateY(0px);
+        box-shadow: 0 10px 25px rgba(59, 130, 246, 0.2);
     }
 
     /* Reset button styling */
@@ -159,6 +281,47 @@
         color: #a9bde9;
     }
 
+    /* New Problem button styling - consistent spacing with home button */
+    .btn-new-problem {
+        background: #007bff !important;
+        border-color: #007bff !important;
+        color: white !important;
+        padding: 10px 18px !important;
+        border-radius: 12px !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    .btn-new-problem:hover {
+        background: #0056b3 !important;
+        border-color: #0056b3 !important;
+        transform: translateY(-1px);
+    }
+
+    /* I don't understand button - dark style like top buttons */
+    .btn-dont-understand {
+        background: #111c33 !important;
+        border: 1px solid #223055 !important;
+        color: #eaf0ff !important;
+        margin-bottom: 20px;
+        display: inline-block;
+        padding: 10px 18px !important;
+        border-radius: 12px !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .btn-dont-understand:hover {
+        border-color: #3b82f6 !important;
+        background: #1a2335 !important;
+        transform: translateY(-1px);
+    }
+
     /* Responsive: stack on mobile */
     @media (max-width: 900px) {
         .coding-layout {
@@ -173,19 +336,6 @@
         }
     }
 </style>
-{% endblock %}
-
-{% block topbar %}
-<div class="flex-between" style="margin-bottom: 20px;">
-    <div class="flex gap-3">
-        <span class="muted">Logged in as <strong>{{ user.username }}</strong></span>
-        <form method="POST" action="/accounts/logout/" style="display: inline;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger" style="padding: 5px 12px;">Log out</button>
-        </form>
-    </div>
-    <a href="/" class="btn" style="padding: 5px 12px; background-color: #28a745">Home</a>
-</div>
 {% endblock %}
 
 {% block content %}
@@ -203,7 +353,7 @@
             <h1>Python Coding Practice</h1>
             <form method="POST" style="display: inline;">
                 {% csrf_token %}
-                <button type="submit" name="new_problem" class="btn new-problem-btn" style="background: #28a745; color: white; border: none;">
+                <button type="submit" name="new_problem" class="btn btn-new-problem" style="border: none;">
                     New Problem
                 </button>
             </form>
@@ -213,37 +363,38 @@
             <strong>Topic:</strong> {{ selected_topic|title }}
         </div>
 
-        <!-- Problem Section -->
-        <div class="card" style="margin-bottom: 16px;">
-            <strong>🤖 AI-Generated Problem:</strong>
-            <div style="margin-top: 12px;">
-                {{ ai_problem }}
-            </div>
-        </div>
-
-        <form method="post" style="display:inline; margin-bottom: 16px; display: inline-block;">
-            {% csrf_token %}
-            <button type="submit" name="i_dont_understand" value="1" class="btn" style="background: #6c757d; color: white;">
-                I don't understand
-            </button>
-        </form>
-
-        <!-- Expected Output Section -->
-        <div class="card" style="margin-top: 16px;">
-            <strong>📤 Expected Output:</strong>
-            <pre style="background: #0b1224; color: #6ee7b7; margin-top: 12px; white-space: pre-wrap; overflow-wrap: break-word;">{{ expected_output }}</pre>
-        </div>
-
+        <!-- 1. Intro Lesson - Consistent card styling with blue border -->
         {% if lesson %}
-        <div class="lesson">
-            <strong>📘 Intro lesson:</strong>
+        <div class="lesson-card">
+            <strong>📘 Intro lesson</strong>
             <pre>{{ lesson }}</pre>
         </div>
         {% endif %}
 
+        <!-- 2. Problem Section - Thicker gradient border with gleam effect -->
+        <div class="problem-card">
+            <strong>🤖 AI-Generated Problem</strong>
+            <div>{{ ai_problem }}</div>
+        </div>
+
+        <!-- 3. Expected Output Section -->
+        <div class="expected-output-card">
+            <strong>📤 Expected Output</strong>
+            <pre>{{ expected_output }}</pre>
+        </div>
+
+        <!-- 4. I don't understand button - dark styling -->
+        <form method="post" style="display: inline-block;">
+            {% csrf_token %}
+            <button type="submit" name="i_dont_understand" value="1" class="btn btn-dont-understand">
+                I don't understand
+            </button>
+        </form>
+
+        <!-- 5. Explanation - Consistent card styling with blue border -->
         {% if show_explanation and explanation %}
-        <div class="explanation">
-            <strong>💡 Explanation:</strong>
+        <div class="explanation-card">
+            <strong>💡 Explanation</strong>
             <pre>{{ explanation }}</pre>
         </div>
         {% endif %}
@@ -265,7 +416,7 @@
 
                 <div class="flex gap-3" style="margin-top: 16px;">
                     <button type="submit" name="run_code" class="btn run-code-btn" style="background: #007bff; color: white; border: none;">▶ Run Code</button>
-                    <button type="submit" name="submit_code" class="btn new-problem-btn" {% if current_problem_awarded %}disabled{% endif %} style="background: #28a745; color: white; border: none;">✓ Submit</button>
+                    <button type="submit" name="submit_code" class="btn submit-code-btn" {% if current_problem_awarded %}disabled{% endif %} style="border: none;">✓ Submit</button>
                 </div>
             </form>
         </div>
@@ -280,11 +431,11 @@
         <!-- AI Feedback Section -->
         {% if evaluation_feedback %}
         <div class="result feedback">
-            <strong>💡 Hint:</strong> {{ evaluation_feedback }}
+            <strong>💡 Feedback:</strong> {{ evaluation_feedback }}
         </div>
         {% endif %}
 
-        <!-- Ruff Feedback Section -->
+        <!-- Ruff Feedback Section
         {% if ruff_feedback %}
         <div class="result feedback" style="background: #fff3cd !important; color: #856404 !important; border: 1px solid #ffeaa7 !important;">
             <strong>🔍 Ruff Code Analysis:</strong>
@@ -292,7 +443,7 @@
         </div>
         {% endif %}
 
-        <hr style="border-color: #223055; margin: 30px 0;">
+        <hr style="border-color: #223055; margin: 30px 0;"> -->
 
         <!-- Reset Progress Button -->
         <form method="POST" style="text-align: center;">
@@ -302,7 +453,7 @@
             </button>
         </form>
 
-        <!-- Skill Map Chart -->
+        <!-- Skill Map Chart with hover effect -->
         <div class="chart-container">
             <h3 style="margin-top: 0;">📊 Skill Map</h3>
             <div style="max-width: 500px; margin: 0 auto; height: 450px;">

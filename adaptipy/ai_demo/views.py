@@ -149,7 +149,7 @@ def coding_demo(request):
 
 
         if "run_code" in request.POST:
-            result = f"Output:\n{output}"
+            result = f"\n{output}"
             result_type = "run"
 
         elif "submit_code" in request.POST:

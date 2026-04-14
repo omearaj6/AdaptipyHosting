@@ -69,7 +69,7 @@ def generate_improvement_feedback(problem: str, expected_output: str, code: str,
         current_level = int(float(profs.get(topic, 0.0)))
 
         instructions = f"""
-        You are a friendly Python tutor providing feedback on a student's code. Their code produces the correct output,
+        You are a Python tutor providing feedback on a student's code. Their code produces the correct output,
         but you need to check if it actually follows the problem's requirements.
 
         IMPORTANT CONSTRAINTS:
@@ -78,7 +78,8 @@ def generate_improvement_feedback(problem: str, expected_output: str, code: str,
         - If the only issue is minor (like a space before parentheses), mention it briefly
         - Keep it concise - 2-3 sentences max
         - Don't use markdown, code blocks, or quotes - just plain text
-        - Be friendly but direct
+        - Be friendly but direct and strict
+        - You are talking to the student, so use second-person language
 
         The student is currently learning level {current_level} of "{topic}".
         Here is the lesson they just saw:
@@ -141,7 +142,8 @@ def generate_problem_with_solution(topic: str, profs: dict) -> dict:
         3. Do NOT introduce new topics as subtopics - only use topics the student has already encountered (proficiency > 0)
         4. For level 0 problems (first encounter with a topic), keep it EXTREMELY simple - just the bare minimum to demonstrate the concept
         5. Each problem should gradually increase in complexity, but always stay focused on the current level's concept
-        6. If you are giving an example of code and output, make sure it is NOT the same as what the problem is asking
+        6. If you are giving an example of code and output, make sure it is DIFFERENT to what the problem is asking
+        7. If the lesson introduces a certain function or concept, tell the student to use that concept in the problem
 
         Here is the curriculum you MUST follow EXACTLY:
 
@@ -349,12 +351,12 @@ def generate_problem_with_solution(topic: str, profs: dict) -> dict:
 
         Definitions:
         - "problem": The Python problem to solve. Use concrete values, no input().
-        - "explanation": Start with "Explanation: " then clarify the problem step by step.
+        - "explanation": Clarify the problem step by step.
         - "expected_output": EXACT output the correct solution prints. Just the output, no extra text.
         - "general_hints": 2 hints about the main topic concept.
         - "subtopics_used": Array of subtopics included (only those with proficiency > 0).
         - "subtopic_hints": Dictionary of hints for each subtopic used.
-        - "lesson": Start with "Lesson: " then explain the ONE new concept for this level. Include a short code example with input/output.
+        - "lesson": Explain the ONE new concept for this level. Include a short code example with input/output.
 
         Remember: Return ONLY the JSON. No markdown, no extra text.
         """

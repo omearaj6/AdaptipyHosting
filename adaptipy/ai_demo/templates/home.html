@@ -1,4 +1,4 @@
-<!-- home.html - Extended from base with tech-y enhancements -->
+<!-- home.html - Updated with cleaner button layout -->
 {% extends "base.html" %}
 
 {% block title %}Home | AdaptiPy{% endblock %}
@@ -31,7 +31,7 @@
     }
 
     .hero-card:hover::before {
-        opacity: 0.5;
+        opacity: 0.4;
     }
 
     .stat-grid {
@@ -105,9 +105,6 @@
         </a>
         <a href="/ai/notebook/" class="btn">
             <span>📓</span> Open notebook
-        </a>
-        <a href="/accounts/password_change/" class="btn">
-            <span>⚙️</span> Change password
         </a>
     </div>
     {% else %}
