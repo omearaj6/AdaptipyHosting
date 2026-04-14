@@ -203,7 +203,7 @@ def generate_problem_with_solution(topic: str, profs: dict) -> dict:
            - ONLY teach: decimal numbers and float arithmetic
            - Can reference: level 0-2 operators
         4 → multi-step expressions
-           - ONLY teach: combining multiple operations
+           - ONLY teach: combining multiple operations (MAKE SURE EXPECTED OUTPUT IS CORRECT)
            - Can reference: level 0-3 operators
         5 → combine with variables
            - ONLY teach: using operators with variables
@@ -337,6 +337,7 @@ def generate_problem_with_solution(topic: str, profs: dict) -> dict:
         3. Is the complexity appropriate for this level? (Level 0 should be VERY simple)
         4. Does the lesson clearly explain the ONE new concept being taught?
         5. Is the expected_output exactly what a correct solution would print?
+        6. Is the expected_output obtainable from the PROBLEM text? (NOT the lesson text)
 
         You must output in EXACTLY this JSON format:
         {{

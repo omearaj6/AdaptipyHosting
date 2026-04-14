@@ -7,7 +7,7 @@ from .proficiencies import ensure_proficiency_rows, apply_decay_if_needed, updat
 from ai_demo.models import ALL_TOPICS
 from ai_demo.utils.ruff_linter import get_ruff_feedback
 from ai_demo.services.runner_service import check_user_code
-from ai_demo.services.ai_service import (generate_improvement_feedback, generate_problem_with_solution)
+from ai_demo.services.ai_service import generate_problem_with_solution
 from ai_demo.utils.codestral_client import codestral_analyse
 
 TOPICS = ALL_TOPICS
@@ -106,7 +106,7 @@ def coding_demo(request):
     days_decayed = apply_decay_if_needed(request.user)
     profs = get_proficiencies(request.user)
 
-    
+
     user_theme = get_user_theme(request.user)
 
     ruff_feedback = None
@@ -116,7 +116,7 @@ def coding_demo(request):
     if request.method == "POST" and "reset_progress" in request.POST:
         reset_user_progress(request.user, request.session)
 
-        
+
     result = None
     result_type = None
     user_code = ""
@@ -128,7 +128,7 @@ def coding_demo(request):
 
     if request.method == "POST" and "new_problem" in request.POST:
         reset_current_problem(request.session)
-    
+
     active_topic = get_active_topic(request, profs)
 
     selected_topic = active_topic
@@ -145,8 +145,7 @@ def coding_demo(request):
 
     if request.method == "POST" and "code" in request.POST:
         user_code = request.POST.get("code", "")
-        correct, output, stderr = check_user_code(user_code, expected_output)
-
+        _, output, stderr = check_user_code(user_code, expected_output)
 
         if "run_code" in request.POST:
             result = f"\n{output}"
@@ -155,42 +154,34 @@ def coding_demo(request):
         elif "submit_code" in request.POST:
             ruff_feedback = get_ruff_feedback(user_code)
 
+            analysis = codestral_analyse(
+                problem=ai_problem,
+                lesson=lesson,
+                expected_output=expected_output,
+                code=user_code,
+                stdout=output,
+                stderr=stderr,
+                ruff_feedback=ruff_feedback,
+            )
+
+            ai_correct = analysis.get("correct", False)
+            delta = float(analysis.get("delta", -0.5))
+            evaluation_feedback = analysis.get("feedback", "")
+
             already_awarded = request.session.get("current_problem_awarded", False)
 
-            if correct:
+            if ai_correct:
                 if not already_awarded:
                     update_proficiency(request.user, topic=selected_topic, delta=1.0)
                     request.session["current_problem_awarded"] = True
                     result = "Correct!"
                 else:
-                    result = "Correct! Proficiency already awarded for this problem."
+                    result = "Correct! Proficiency already awarded."
+                result_type = "success"
             else:
-                update_proficiency(request.user, topic=selected_topic, delta=-0.25)
+                update_proficiency(request.user, topic=selected_topic, delta=delta)
                 result = "Incorrect"
-
-            result_type = "success" if correct else "error"
-            if correct:
-                # Generate improvement feedback for correct code
-                evaluation_feedback = generate_improvement_feedback(
-                    problem=ai_problem,
-                    expected_output=expected_output,
-                    code=user_code,
-                    ruff_feedback=ruff_feedback,
-                    profs=profs,
-                    topic=selected_topic,
-                    lesson=lesson
-                )
-                ruff_feedback = None
-            else:
-                evaluation_feedback = codestral_analyse(
-                    problem=ai_problem,
-                    expected_output=expected_output,
-                    code=user_code,
-                    stdout=output,
-                    stderr=stderr,
-                    correct=correct,
-                )
-
+                result_type = "error"
 
     proficiency_debug = (
         TopicProficiency.objects
@@ -215,7 +206,6 @@ def coding_demo(request):
         "show_explanation": show_explanation,
         "expected_output": expected_output,
         "notebook_content": notebook.content,
-        "ruff_feedback": ruff_feedback,
         "current_problem_awarded": request.session.get("current_problem_awarded", False),
         "result_type": result_type,
         "chart_labels": chart_labels,
