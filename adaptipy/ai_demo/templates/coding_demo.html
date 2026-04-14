@@ -387,7 +387,7 @@
         <form method="post" style="display: inline-block;">
             {% csrf_token %}
             <button type="submit" name="i_dont_understand" value="1" class="btn btn-dont-understand">
-                I don't understand
+                I don't understand the problem
             </button>
         </form>
 
@@ -490,6 +490,25 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 
+
+<script>
+    function getCSRFToken() {
+        const name = 'csrftoken';
+        const cookies = document.cookie ? document.cookie.split(';') : [];
+
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + '=')) {
+                return decodeURIComponent(cookie.substring(name.length + 1));
+            }
+        }
+        return '';
+    }
+</script>
+
+ 
+
+
 <script>
     // Get user's saved theme from Django context
     let currentTheme = '{{ user_theme|default:"vs-dark" }}';
@@ -505,11 +524,12 @@
         fetch('/ai/save_theme/', {
             method: 'POST',
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-CSRFToken': getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: new URLSearchParams({
-                'theme': theme
+                theme: theme
             })
         })
         .then(response => response.json())
@@ -526,16 +546,15 @@
         if (!window.editor) return;
 
         if (currentTheme === 'vs-dark') {
-            window.editor.updateOptions({ theme: 'vs' });
+            monaco.editor.setTheme('vs');
             currentTheme = 'vs';
             document.getElementById('themeToggleBtn').innerHTML = '<span>🌙</span> Toggle Dark/Light';
         } else {
-            window.editor.updateOptions({ theme: 'vs-dark' });
+            monaco.editor.setTheme('vs-dark');
             currentTheme = 'vs-dark';
             document.getElementById('themeToggleBtn').innerHTML = '<span>☀️</span> Toggle Dark/Light';
         }
 
-        // Save preference to database
         saveThemeToDB(currentTheme);
     }
 
@@ -584,10 +603,13 @@
 
             const formData = new FormData();
             formData.append('content', content);
-            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
             fetch('/ai/save_notebook/', {
                 method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCSRFToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: formData
             })
             .then(response => response.json())
@@ -677,4 +699,25 @@
         });
     });
 </script>
+
+
+
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const savedScrollY = sessionStorage.getItem('codingDemoScrollY');
+        if (savedScrollY !== null) {
+            window.scrollTo(0, parseInt(savedScrollY, 10));
+            sessionStorage.removeItem('codingDemoScrollY');
+        }
+
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function () {
+                sessionStorage.setItem('codingDemoScrollY', window.scrollY);
+            });
+        });
+    });
+</script>
+
 {% endblock %}
