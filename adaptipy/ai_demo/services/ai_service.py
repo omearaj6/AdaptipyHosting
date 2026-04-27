@@ -1,131 +1,6 @@
 import os
 import json
 
-
-
-def generate_hint_openai(problem: str, expected_output: str, code: str, stdout: str, stderr: str, correct: bool) -> str:
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-        instructions = (
-            "You are a tutor helping a beginner learn Python and analysing and evaluating their Python problems.\n"
-            "Rules:\n"
-            "- Do NOT provide the full solution.\n"
-            "- Do NOT provide a complete corrected code listing.\n"
-            "- Give a targeted hint.\n"
-            "- If correct, give 1–2 improvements (style/readability/edge cases) without rewriting everything.\n"
-            "- Be concise and beginner-friendly.\n"
-        )
-
-        user_msg = f"""
-Problem:
-{problem}
-
-Expected output:
-{expected_output}
-
-Student code:
-{code}
-
-Program stdout:
-{stdout}
-
-Program stderr (if any):
-{stderr}
-
-Was the output correct? {correct}
-"""
-
-        response = client.chat.completions.create(
-            model=os.getenv("OPENAI_HINT_MODEL", "gpt-3.5-turbo"),
-            messages=[
-                {"role": "system", "content": instructions},
-                {"role": "user", "content": user_msg},
-            ],
-            max_tokens=220,
-            temperature=0.4,
-        )
-
-        text = (response.choices[0].message.content or "").strip()
-        return text or "Try comparing your output to the expected output line by line."
-
-    except Exception as e:
-        return f"OPENAI ERROR: {type(e).__name__}: {e}"
-    
-
-
-def generate_improvement_feedback(problem: str, expected_output: str, code: str,
-                                  ruff_feedback: str, profs: dict, topic: str,
-                                  lesson: str = "") -> str:
-    """
-    Generate personalized improvement feedback for correct code submissions.
-    """
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-        # Get the student's current level in this topic
-        current_level = int(float(profs.get(topic, 0.0)))
-
-        instructions = f"""
-        You are a Python tutor providing feedback on a student's code. Their code produces the correct output,
-        but you need to check if it actually follows the problem's requirements.
-
-        IMPORTANT CONSTRAINTS:
-        - ONLY give feedback related to the current problem and lesson
-        - Do NOT suggest concepts that haven't been taught yet (like variables if this is a len() problem)
-        - If the only issue is minor (like a space before parentheses), mention it briefly
-        - Keep it concise - 2-3 sentences max
-        - Don't use markdown, code blocks, or quotes - just plain text
-        - Be friendly but direct and strict
-        - You are talking to the student, so use second-person language
-
-        The student is currently learning level {current_level} of "{topic}".
-        Here is the lesson they just saw:
-        {lesson}
-
-        Current problem:
-        {problem}
-
-        Focus your feedback ONLY on:
-        1. Did they follow the exact problem requirements?
-        2. Are there any syntax issues in their current code?
-        3. Is their code clean and readable for their level?
-
-        Do NOT suggest:
-        - Future concepts they haven't learned yet
-        - Alternative approaches that aren't relevant to this specific problem
-        - "Next steps" that go beyond what's being taught
-        """
-
-        user_msg = f"""
-        Student's code:
-        {code}
-
-        Ruff feedback (ignore trivial stuff like newlines/docstrings):
-        {ruff_feedback}
-        """
-
-        response = client.chat.completions.create(
-            model=os.getenv("OPENAI_HINT_MODEL", "gpt-3.5-turbo"),
-            messages=[
-                {"role": "system", "content": instructions},
-                {"role": "user", "content": user_msg},
-            ],
-            max_tokens=120,
-            temperature=0.5,
-        )
-
-        feedback = (response.choices[0].message.content or "").strip()
-        return feedback if feedback else "Your code works! Check that you followed the problem exactly."
-
-    except Exception as e:
-        print(f"Feedback generation error: {e}")
-        return "Your code produces the right output. Good work!"
-    
-
-
 def generate_problem_with_solution(topic: str, profs: dict) -> dict:
     try:
         from openai import OpenAI
@@ -387,35 +262,9 @@ def generate_problem_with_solution(topic: str, profs: dict) -> dict:
         }
 
     except Exception:
-        SM2_FALLBACKS = {
-            "loops": ("Print numbers 1 to 5", "1\n2\n3\n4\n5"),
-            "strings": ("Print each character in hello", "h\ne\nl\nl\no"),
-            "arrays": ("Print each element in [1,2,3]", "1\n2\n3"),
-            "recursion": ("Print numbers 5 to 1", "5\n4\n3\n2\n1"),
-            "conditionals": ("Print even if 4 is even", "even"),
-            "variables": ("Set x = 10 and print it", "10"),
-        }
-
-        NEW_FALLBACKS = {
-            "print_basics": ("Use print() to display the message Hello World.", "Hello World"),
-            "variables": ("Create a variable x with value 5 and print it.", "5"),
-            "primitive_data_types": ("Print an integer, a float, and a string, each on a new line.", "1\n2.5\nhello"),
-            "simple_operators": ("Print the result of 3 + 4.", "7"),
-            "lists": ("Create a list [1, 2, 3] and print it.", "[1, 2, 3]"),
-            "conditionals": ("If x = 3, print 'odd'.", "odd"),
-            "while_loops": ("Use a while loop to print numbers 1 to 3.", "1\n2\n3"),
-            "for_loops": ("Use a for loop to print numbers 1 to 3.", "1\n2\n3"),
-            "strings_advanced": ("Print the length of the string 'hello'.", "5"),
-            "basic_edge_cases": ("Print the result of dividing 10 by 1.", "10.0"),
-            "dictionaries": ("Create a dictionary with key 'a' and value 1, then print it.", "{'a': 1}"),
-            "functions": ("Define a function that prints 'hi' and call it.", "hi"),
-            "all_loops_advanced": ("Print numbers 1 to 5 using any loop.", "1\n2\n3\n4\n5"),
-        }
 
         p, e = (
-            SM2_FALLBACKS.get(topic)
-            or NEW_FALLBACKS.get(topic)
-            or (f"Write a short Python program about {topic} that prints a simple result.", "OK")
+         (f"Write a short Python program about {topic} that prints a simple result.", "OK")
         )
 
         lesson = ""

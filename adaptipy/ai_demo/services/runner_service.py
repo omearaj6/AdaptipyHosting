@@ -1,12 +1,12 @@
 import os
+
 import requests
 
-def check_user_code(code, expected_output):
+
+def check_user_code(code):
     try:
         runner_url = os.environ["RUNNER_URL"]
         runner_secret = os.environ["SECRET_PASSPHRASE"]
-        print("RUNNER_URL:", runner_url)
-        print("RUNNER_SECRET present:", bool(runner_secret))
 
         response = requests.post(
             f"{runner_url}/run",
@@ -19,24 +19,16 @@ def check_user_code(code, expected_output):
             },
             timeout=15,
         )
-        print("RUNNER STATUS:", response.status_code)
-        print("RUNNER BODY:", response.text)
+
         data = response.json()
 
         stdout = (data.get("stdout") or "").strip()
         stderr = (data.get("stderr") or "").strip()
         exit_code = data.get("exitCode", 1)
 
-        correct = (exit_code == 0) and (stdout == expected_output.strip())
-
-        print("DEBUG stdout repr:", repr(stdout))
-        print("DEBUG expected repr:", repr(expected_output.strip()))
-        print("DEBUG exitCode:", exit_code)
-        
-
-        return correct, stdout, stderr
+        return stdout, stderr, exit_code
 
     except requests.Timeout:
-        return False, "", "Execution service timed out."
+        return "", "Execution service timed out.", 1
     except Exception as e:
-        return False, "", f"Execution error: {e}"
+        return "", f"Execution error: {e}", 1

@@ -145,7 +145,7 @@ def coding_demo(request):
 
     if request.method == "POST" and "code" in request.POST:
         user_code = request.POST.get("code", "")
-        _, output, stderr = check_user_code(user_code, expected_output)
+        output, stderr, exit_code = check_user_code(user_code)
 
         if "run_code" in request.POST:
             result = f"\n{output}"
