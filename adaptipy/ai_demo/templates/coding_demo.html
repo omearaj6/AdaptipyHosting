@@ -1,4 +1,3 @@
-<!-- coding_demo.html - Updated with button spacing, green submit, skill map hover, and gradient problem box -->
 {% extends "base.html" %}
 
 {% block title %}Python Coding Practice | AdaptiPy{% endblock %}
@@ -21,7 +20,6 @@
 
 {% block extra_css %}
 <style>
-    /* Restore original layout with notebook sidebar */
     .coding-layout {
         display: flex;
         gap: 24px;
@@ -44,7 +42,6 @@
         overflow-y: auto;
     }
 
-    /* Consistent card styling for problem, lesson, and explanation */
     .problem-card, .lesson-card, .explanation-card, .expected-output-card {
         background: #111c33;
         border: 1px solid #223055;
@@ -54,12 +51,10 @@
         transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    /* Lesson and explanation have permanent blue border */
     .lesson-card, .explanation-card {
         border-color: #3b82f6;
     }
 
-    /* Problem box - thicker permanent gradient border */
     .problem-card {
         border: 3px solid transparent;
         background: linear-gradient(#111c33, #111c33) padding-box,
@@ -68,7 +63,6 @@
         overflow: hidden;
     }
 
-    /* Gleam effect on problem box hover - similar to home page features */
     .problem-card::before {
         content: '';
         position: absolute;
@@ -101,7 +95,6 @@
         box-shadow: 0 10px 30px rgba(59, 130, 246, 0.15);
     }
 
-    /* Override the hover border for problem card since it has gradient border */
     .problem-card:hover {
         border-color: transparent;
     }
@@ -129,7 +122,6 @@
         margin: 0;
     }
 
-    /* Expected output specific pre styling */
     .expected-output-card pre {
         background: #0b1224;
         color: #6ee7b7;
@@ -143,12 +135,10 @@
         font-size: 13px;
     }
 
-    /* Remove the arrow from all pre elements */
     pre::before {
         display: none !important;
     }
 
-    /* Preserve other coding demo styles */
     .new-problem-btn {
         background: #007bff !important;
         padding: 10px 18px !important;
@@ -158,7 +148,6 @@
     }
     .run-code-btn { background: #007bff !important; }
 
-    /* Submit button - keep green */
     .submit-code-btn {
         background: #28a745;
         border-color: #28a745;
@@ -175,7 +164,6 @@
     .feedback { background: #e7f3ff !important; color: #004085 !important; border: 1px solid #b8daff !important; margin-top: 15px; }
     .run { background: #e7f3ff !important; color: #2a88e5 !important; border: 1px solid #b8daff !important; }
 
-    /* Notebook widget styling */
     .notebook-sidebar > div {
         background: #111c33 !important;
         border: 1px solid #3b82f6 !important;
@@ -200,7 +188,6 @@
         resize: vertical;
     }
 
-    /* Proficiency chart container with hover effect */
     .chart-container {
         background: #111c33;
         border: 1px solid #223055;
@@ -235,12 +222,10 @@
         box-shadow: 0 10px 25px rgba(59, 130, 246, 0.2);
     }
 
-    /* Reset button styling */
     .reset-btn {
         background: #dc3545 !important;
     }
 
-    /* Make sure Monaco editor fits */
     #editor {
         height: 350px;
         border: 1px solid #223055;
@@ -248,7 +233,6 @@
         overflow: hidden;
     }
 
-    /* Theme toggle button styling */
     .theme-toggle {
         display: inline-flex;
         align-items: center;
@@ -281,7 +265,6 @@
         color: #a9bde9;
     }
 
-    /* New Problem button styling - consistent spacing with home button */
     .btn-new-problem {
         background: #007bff !important;
         border-color: #007bff !important;
@@ -301,7 +284,25 @@
         transform: translateY(-1px);
     }
 
-    /* I don't understand button - dark style like top buttons */
+    .code-action-buttons {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .action-buttons-left {
+        display: flex;
+        gap: 12px;
+        flex: 1;
+    }
+
+    .new-problem-right {
+        display: flex;
+        justify-content: flex-end;
+    }
+
     .btn-dont-understand {
         background: #111c33 !important;
         border: 1px solid #223055 !important;
@@ -334,7 +335,11 @@
         transform: none !important;
     }
 
-    /* Responsive: stack on mobile */
+    .reset-progress-container {
+        margin-top: 20px;
+        text-align: center;
+    }
+
     @media (max-width: 900px) {
         .coding-layout {
             flex-direction: column;
@@ -345,6 +350,19 @@
         .notebook-sidebar {
             width: 100%;
             position: static;
+        }
+
+        .code-action-buttons {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .action-buttons-left {
+            justify-content: center;
+        }
+
+        .new-problem-right {
+            justify-content: center;
         }
     }
 </style>
@@ -375,7 +393,7 @@
             <strong>Topic:</strong> {{ selected_topic|title }}
         </div>
 
-        <!-- 1. Intro Lesson - Consistent card styling with blue border -->
+        <!-- 1. Intro Lesson -->
         {% if lesson %}
         <div class="lesson-card">
             <strong>📘 Intro lesson</strong>
@@ -383,7 +401,7 @@
         </div>
         {% endif %}
 
-        <!-- 2. Problem Section - Thicker gradient border with gleam effect -->
+        <!-- 2. Problem Section -->
         <div class="problem-card">
             <strong>🤖 AI-Generated Problem</strong>
             <div>{{ ai_problem }}</div>
@@ -395,7 +413,7 @@
             <pre>{{ expected_output }}</pre>
         </div>
 
-        <!-- 4. I don't understand button - dark styling -->
+        <!-- 4. I don't understand button -->
         <form method="post" style="display: inline-block;">
             {% csrf_token %}
             <button type="submit" name="i_dont_understand" value="1" class="btn btn-dont-understand">
@@ -403,7 +421,7 @@
             </button>
         </form>
 
-        <!-- 5. Explanation - Consistent card styling with blue border -->
+        <!-- 5. Explanation -->
         {% if show_explanation and explanation %}
         <div class="explanation-card">
             <strong>💡 Explanation</strong>
@@ -420,17 +438,21 @@
                 </button>
             </div>
 
-            <form method="POST" onsubmit="syncEditor()">
-                {% csrf_token %}
-                <input type="hidden" name="code" id="code-input">
+            <div id="editor"></div>
 
-                <div id="editor"></div>
-
-                <div class="flex gap-3" style="margin-top: 16px;">
+            <div class="code-action-buttons" style="display: flex; gap: 12px; margin-top: 16px; align-items: center;">
+                <form method="POST" onsubmit="syncEditor()" style="display: flex; gap: 12px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="code" id="code-input">
                     <button type="submit" name="run_code" class="btn run-code-btn" style="background: #007bff; color: white; border: none;">▶ Run Code</button>
                     <button type="submit" name="submit_code" class="btn submit-code-btn" {% if current_problem_awarded %}disabled{% endif %} style="border: none;">✓ Submit</button>
-                </div>
-            </form>
+                </form>
+
+                <form method="POST" style="margin-left: auto;">
+                    {% csrf_token %}
+                    <button type="submit" name="new_problem" class="btn btn-new-problem" style="border: none;">New Problem</button>
+                </form>
+            </div>
         </div>
 
         <!-- Results Section -->
@@ -447,25 +469,7 @@
         </div>
         {% endif %}
 
-        <!-- Ruff Feedback Section
-        {% if ruff_feedback %}
-        <div class="result feedback" style="background: #fff3cd !important; color: #856404 !important; border: 1px solid #ffeaa7 !important;">
-            <strong>🔍 Ruff Code Analysis:</strong>
-            <pre style="white-space: pre-wrap; margin: 10px 0; font-size: 13px;">{{ ruff_feedback }}</pre>
-        </div>
-        {% endif %}
-
-        <hr style="border-color: #223055; margin: 30px 0;"> -->
-
-        <!-- Reset Progress Button -->
-        <form method="POST" style="text-align: center;">
-            {% csrf_token %}
-            <button type="submit" name="reset_progress" class="btn reset-btn" style="background: #dc3545; color: white; border: none; padding: 12px 24px;">
-                Reset Learning Progress
-            </button>
-        </form>
-
-        <!-- Skill Map Chart with hover effect -->
+        <!-- Skill Map Chart -->
         <div class="chart-container">
             <h3 style="margin-top: 0;">📊 Skill Map</h3>
             <div style="max-width: 500px; margin: 0 auto; height: 450px;">
@@ -473,14 +477,15 @@
             </div>
         </div>
 
-        {% if proficiency_debug %}
-        <div class="muted" style="margin-top: 16px; font-size: 12px;">
-            <strong>Proficiency (debug):</strong><br>
-            {% for p in proficiency_debug %}
-            {{ p.topic }} → {{ p.proficiency }}<br>
-            {% endfor %}
+        <!-- Reset Progress Button -->
+        <div class="reset-progress-container">
+            <form method="POST">
+                {% csrf_token %}
+                <button type="submit" name="reset_progress" class="btn reset-btn" style="background: #dc3545; color: white; border: none; padding: 12px 24px;">
+                    Reset Learning Progress
+                </button>
+            </form>
         </div>
-        {% endif %}
     </div>
 
     <!-- Notebook Sidebar -->
@@ -518,7 +523,6 @@
     }
 </script>
 
- 
 
 
 <script>

@@ -69,7 +69,7 @@ def codestral_analyse(
             "Feedback rules:\n"
             "- Speak in SECOND PERSON\n"
             "- If correct → brief praise\n"
-            "- If correct but not optimal -> Suggest ways to make the solution more efficient"
+            "- If correct but not optimal / convuluted-> Suggest ways to make the solution more efficient/straight forward"
             "- If slightly wrong → give a hint\n"
             "- If very wrong → explain the main issue clearly\n"
             "- DO NOT give the exact solution\n\n"
